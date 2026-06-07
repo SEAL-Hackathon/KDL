@@ -1,0 +1,29 @@
+graph TD
+    K7["🛡️ KHỐI AN NINH – TRẬT TỰ\n(Phó TGĐ Vận hành phụ trách)"]
+
+    K7 --> P7A["Đội Bảo vệ – An ninh 24/7"]
+    K7 --> P7B["PCCC – An toàn lao động"]
+    K7 --> P7C["Kiểm soát ra vào (Access Control)"]
+    K7 --> P7D["Camera & Hệ thống giám sát"]
+
+    P7A --> T1["Ca trực ngày – Đội tuần tra"]
+    P7A --> T2["Ca trực đêm – Đội ứng trực"]
+    P7A --> T3["Bảo vệ chuyên trách khu VIP"]
+
+    P7B --> T4["Đội PCCC – Chữa cháy"]
+    P7B --> T5["Chuyên viên An toàn lao động – HSE"]
+    P7B --> T6["Tổ kiểm tra định kỳ thiết bị PCCC"]
+
+    P7C --> T7["Tổ Kiểm soát cổng chính – Bãi xe"]
+    P7C --> T8["Tổ Thẻ từ – Hệ thống khóa phòng"]
+
+    P7D --> T9["Tổ Vận hành phòng điều khiển (CCTV)"]
+    P7D --> T10["Kỹ thuật viên hệ thống an ninh"]
+
+    classDef khoi  fill:#742a2a,color:#fff,stroke:#742a2a,font-weight:bold
+    classDef phong fill:#fff5f5,color:#2d3748,stroke:#feb2b2,font-weight:600
+    classDef to    fill:#fffafa,color:#4a5568,stroke:#fed7d7
+
+    class K7 khoi
+    class P7A,P7B,P7C,P7D phong
+    class T1,T2,T3,T4,T5,T6,T7,T8,T9,T10 to

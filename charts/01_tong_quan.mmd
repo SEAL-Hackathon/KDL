@@ -1,0 +1,33 @@
+graph TD
+    HDQT["🏛️ HỘI ĐỒNG QUẢN TRỊ"]
+    TGD["👔 TỔNG GIÁM ĐỐC"]
+
+    HDQT --> TGD
+
+    TGD --> PTGD1["PHÓ TGĐ\nKINH DOANH"]
+    TGD --> PTGD2["PHÓ TGĐ\nVẬN HÀNH"]
+    TGD --> PTGD3["PHÓ TGĐ\nNHÂN SỰ & HỖ TRỢ"]
+    TGD --> CTV["🤝 KHỐI\nCỘNG TÁC VIÊN"]
+
+    PTGD1 --> K2["📈 KHỐI\nKINH DOANH & MARKETING"]
+
+    PTGD2 --> K3["🏨 KHỐI\nLƯU TRÚ"]
+    PTGD2 --> K4["🍽️ KHỐI\nẨM THỰC (F&B)"]
+    PTGD2 --> K5["🎭 KHỐI\nVUI CHƠI & GIẢI TRÍ"]
+    PTGD2 --> K6["💆 KHỐI\nSPA & WELLNESS"]
+    PTGD2 --> K7["🛡️ KHỐI\nAN NINH – TRẬT TỰ"]
+
+    PTGD3 --> K1["🏢 KHỐI\nQUẢN LÝ & ĐIỀU HÀNH"]
+
+    %% style
+    classDef hdqt  fill:#1a365d,color:#fff,stroke:#1a365d,font-weight:bold,font-size:15px
+    classDef tgd   fill:#2b6cb0,color:#fff,stroke:#2b6cb0,font-weight:bold
+    classDef ptgd  fill:#2c7a7b,color:#fff,stroke:#285e61,font-weight:bold
+    classDef khoi  fill:#ebf8ff,color:#1a365d,stroke:#90cdf4,font-weight:600
+    classDef ctv   fill:#fffaf0,color:#744210,stroke:#f6ad55,stroke-dasharray:5 4,font-weight:600
+
+    class HDQT hdqt
+    class TGD tgd
+    class PTGD1,PTGD2,PTGD3 ptgd
+    class K1,K2,K3,K4,K5,K6,K7 khoi
+    class CTV ctv

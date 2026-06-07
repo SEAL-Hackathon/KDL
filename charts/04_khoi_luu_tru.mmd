@@ -1,0 +1,30 @@
+graph TD
+    K3["🏨 KHỐI LƯU TRÚ\n(Phó TGĐ Vận hành phụ trách)"]
+
+    K3 --> P3A["Ban Lễ tân (Front Office)"]
+    K3 --> P3B["Ban Buồng phòng (Housekeeping)"]
+    K3 --> P3C["Ban Bảo trì – Kỹ thuật"]
+    K3 --> P3D["Ban Cảnh quan – Môi trường"]
+
+    P3A --> T1["Tổ Lễ tân chính (Reception)"]
+    P3A --> T2["Tổ Concierge / Bell / Valet"]
+    P3A --> T3["Tổ Guest Relations (GRO)"]
+
+    P3B --> T4["Tổ Dọn phòng – Tầng"]
+    P3B --> T5["Tổ Giặt là – Laundry"]
+    P3B --> T6["Tổ Kiểm phòng – Mini-bar"]
+
+    P3C --> T7["Tổ Điện – Điều hòa – Nước"]
+    P3C --> T8["Tổ Cơ khí – Xây dựng nhỏ"]
+    P3C --> T9["Tổ Hệ thống phòng cháy – PCCC"]
+
+    P3D --> T10["Tổ Cây xanh – Vườn hoa"]
+    P3D --> T11["Tổ Vệ sinh môi trường"]
+
+    classDef khoi  fill:#2b6cb0,color:#fff,stroke:#2b6cb0,font-weight:bold
+    classDef phong fill:#ebf8ff,color:#2d3748,stroke:#90cdf4,font-weight:600
+    classDef to    fill:#f7fafc,color:#4a5568,stroke:#bee3f8
+
+    class K3 khoi
+    class P3A,P3B,P3C,P3D phong
+    class T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11 to

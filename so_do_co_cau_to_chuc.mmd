@@ -1,0 +1,99 @@
+graph TD
+    HDQT["🏛️ HỘI ĐỒNG QUẢN TRỊ"]
+    BGD["👔 BAN TỔNG GIÁM ĐỐC"]
+
+    HDQT --> BGD
+
+    %% ── 8 KHỐI CHỨC NĂNG ──
+    BGD --> K1["🏢 KHỐI\nQUẢN LÝ & ĐIỀU HÀNH"]
+    BGD --> K2["📈 KHỐI\nKINH DOANH & MARKETING"]
+    BGD --> K3["🏨 KHỐI\nLƯU TRÚ"]
+    BGD --> K4["🍽️ KHỐI\nẨM THỰC (F&B)"]
+    BGD --> K5["🎭 KHỐI\nVUI CHƠI & GIẢI TRÍ"]
+    BGD --> K6["💆 KHỐI\nSPA & WELLNESS"]
+    BGD --> K7["🛡️ KHỐI\nAN NINH – TRẬT TỰ"]
+    BGD --> K8["🤝 KHỐI\nCỘNG TÁC VIÊN"]
+
+    %% ── KHỐI 1: Quản lý & Điều hành ──
+    K1 --> P1A["P. Hành chính – Nhân sự"]
+    K1 --> P1B["P. Tài chính – Kế toán"]
+    K1 --> P1C["P. Pháp chế – Tuân thủ"]
+    K1 --> P1D["P. Công nghệ thông tin"]
+
+    P1A --> T1A1["Tổ Tuyển dụng"]
+    P1A --> T1A2["Tổ Lương – BHXH"]
+    P1A --> T1A3["Tổ Đào tạo & PTNS"]
+
+    %% ── KHỐI 2: Kinh doanh & Marketing ──
+    K2 --> P2A["P. Kinh doanh – Bán hàng"]
+    K2 --> P2B["P. Marketing & Truyền thông"]
+    K2 --> P2C["P. Quan hệ khách hàng (CRM)"]
+    K2 --> P2D["P. Đặt phòng & Revenue"]
+
+    %% ── KHỐI 3: Lưu trú ──
+    K3 --> P3A["Ban Lễ tân (Front Office)"]
+    K3 --> P3B["Ban Buồng phòng (HK)"]
+    K3 --> P3C["Ban Bảo trì – Kỹ thuật"]
+    K3 --> P3D["Ban Cảnh quan – Môi trường"]
+
+    P3A --> T3A1["Lễ tân chính"]
+    P3A --> T3A2["Concierge / Bell"]
+
+    %% ── KHỐI 4: Ẩm thực ──
+    K4 --> P4A["Nhà hàng chính (All-Day)"]
+    K4 --> P4B["Nhà hàng đặc sản Hà Tĩnh"]
+    K4 --> P4C["Bar – Café – Rooftop"]
+    K4 --> P4D["Bếp trung tâm & Pastry"]
+    K4 --> P4E["Tổ Tiệc & Banquet"]
+
+    %% ── KHỐI 5: Vui chơi & Giải trí ──
+    K5 --> P5A["Trung tâm Thể thao – Outdoor"]
+    K5 --> P5B["Khu Vui chơi – Công viên"]
+    K5 --> P5C["Tổ chức Sự kiện & MICE"]
+    K5 --> P5D["🎵 Đội Nghệ thuật Dân gian\n(Đặc thù Hà Tĩnh)"]
+
+    P5D --> T5D1["Hát Ví Dặm Nghệ Tĩnh"]
+    P5D --> T5D2["Múa – Nhạc dân tộc"]
+    P5D --> T5D3["Biểu diễn lễ hội"]
+
+    %% ── KHỐI 6: Spa & Wellness ──
+    K6 --> P6A["Spa – Massage – Trị liệu"]
+    K6 --> P6B["Gym – Yoga – Fitness"]
+    K6 --> P6C["Hồ bơi – Bãi biển"]
+    K6 --> P6D["Dịch vụ chăm sóc sức khỏe"]
+
+    %% ── KHỐI 7: An ninh ──
+    K7 --> P7A["Đội Bảo vệ – An ninh 24/7"]
+    K7 --> P7B["PCCC – An toàn lao động"]
+    K7 --> P7C["Kiểm soát ra vào (Access)"]
+
+    %% ── KHỐI 8: Cộng tác viên ──
+    K8 --> P8A["Nghệ nhân Hát chèo / Ví Dặm"]
+    K8 --> P8B["Hướng dẫn viên địa phương"]
+    K8 --> P8C["Nhiếp ảnh gia – Content Creator"]
+    K8 --> P8D["CTV thời vụ (lễ hội, sự kiện)"]
+    K8 --> P8E["Chuyên gia / Tư vấn độc lập"]
+
+    %% ── STYLE ──
+    classDef hdqt   fill:#1a365d,color:#fff,stroke:#1a365d,font-weight:bold
+    classDef bgd    fill:#2b6cb0,color:#fff,stroke:#2b6cb0,font-weight:bold
+    classDef khoi   fill:#2c7a7b,color:#fff,stroke:#285e61
+    classDef phong  fill:#ebf8ff,color:#2d3748,stroke:#90cdf4
+    classDef to     fill:#f7fafc,color:#4a5568,stroke:#bee3f8
+    classDef ctv    fill:#fffaf0,color:#744210,stroke:#f6ad55,stroke-dasharray:5 5
+    classDef nghe   fill:#fffff0,color:#744210,stroke:#d69e2e,font-weight:bold
+
+    class HDQT hdqt
+    class BGD bgd
+    class K1,K2,K3,K4,K5,K6,K7 khoi
+    class K8 ctv
+    class P1A,P1B,P1C,P1D phong
+    class P2A,P2B,P2C,P2D phong
+    class P3A,P3B,P3C,P3D phong
+    class P4A,P4B,P4C,P4D,P4E phong
+    class P5A,P5B,P5C phong
+    class P6A,P6B,P6C,P6D phong
+    class P7A,P7B,P7C phong
+    class T1A1,T1A2,T1A3,T3A1,T3A2,T5D1,T5D2,T5D3 to
+    class P5D nghe
+    class P8A,P8B,P8C,P8D,P8E ctv

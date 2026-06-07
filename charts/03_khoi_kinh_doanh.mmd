@@ -1,0 +1,29 @@
+graph TD
+    K2["📈 KHỐI KINH DOANH & MARKETING\n(Phó TGĐ Kinh doanh phụ trách)"]
+
+    K2 --> P2A["P. Kinh doanh – Bán hàng"]
+    K2 --> P2B["P. Marketing & Truyền thông"]
+    K2 --> P2C["P. Quan hệ khách hàng (CRM)"]
+    K2 --> P2D["P. Đặt phòng & Revenue Management"]
+
+    P2A --> T1["Tổ Kinh doanh nội địa"]
+    P2A --> T2["Tổ Kinh doanh quốc tế & MICE"]
+    P2A --> T3["Tổ Đối tác – OTA – Đại lý"]
+
+    P2B --> T4["Tổ Nội dung & Mạng xã hội"]
+    P2B --> T5["Tổ Thiết kế – Truyền thông"]
+    P2B --> T6["Tổ PR & Sự kiện quảng bá"]
+
+    P2C --> T7["Tổ Chăm sóc khách hàng"]
+    P2C --> T8["Tổ Khách hàng thân thiết (Loyalty)"]
+
+    P2D --> T9["Chuyên viên Revenue Manager"]
+    P2D --> T10["Tổ Đặt phòng (Reservation)"]
+
+    classDef khoi  fill:#744210,color:#fff,stroke:#744210,font-weight:bold
+    classDef phong fill:#fffaf0,color:#2d3748,stroke:#f6ad55,font-weight:600
+    classDef to    fill:#fff,color:#4a5568,stroke:#fbd38d
+
+    class K2 khoi
+    class P2A,P2B,P2C,P2D phong
+    class T1,T2,T3,T4,T5,T6,T7,T8,T9,T10 to

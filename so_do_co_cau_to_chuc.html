@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sơ Đồ Cơ Cấu Tổ Chức – Khu Du Lịch Hà Tĩnh</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f4f8;
+      color: #1a202c;
+      padding: 24px;
+      min-width: 1200px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #1a365d;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #718096;
+      margin-bottom: 32px;
+    }
+
+    /* ── Tree container ── */
+    .tree {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    /* ── Generic box ── */
+    .box {
+      border-radius: 8px;
+      padding: 10px 18px;
+      text-align: center;
+      font-size: 0.82rem;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+      position: relative;
+    }
+
+    /* ── Level colours ── */
+    .lvl-hdqt   { background: #1a365d; color: #fff; font-size: 0.95rem; padding: 12px 28px; }
+    .lvl-bgd    { background: #2b6cb0; color: #fff; font-size: 0.88rem; padding: 11px 24px; }
+    .lvl-khoi   { background: #2c7a7b; color: #fff; }
+    .lvl-phong  { background: #fff;    color: #2d3748; border: 1.5px solid #90cdf4; }
+    .lvl-to     { background: #f7fafc; color: #4a5568; border: 1px solid #bee3f8; font-weight: 500; font-size: 0.78rem; }
+    .lvl-ctv    { background: #fffaf0; color: #744210; border: 1.5px dashed #f6ad55; }
+
+    /* ── Connector lines ── */
+    .v-line {
+      width: 2px;
+      background: #90cdf4;
+      margin: 0 auto;
+    }
+    .v-line-sm { height: 16px; }
+    .v-line-md { height: 24px; }
+
+    .h-branch {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 0;
+      position: relative;
+    }
+
+    /* horizontal bar above branches */
+    .h-bar {
+      position: absolute;
+      top: 0;
+      height: 2px;
+      background: #90cdf4;
+    }
+
+    .branch-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 160px;
+      padding: 0 6px;
+    }
+
+    /* ── Sub-list inside a phong ── */
+    .sub-list {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 36px;
+      font-size: 0.78rem;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .legend-dot {
+      width: 14px; height: 14px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    /* ── Tooltip badge ── */
+    .badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      background: #fed7aa;
+      color: #7b341e;
+      border-radius: 4px;
+      padding: 1px 5px;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+
+    /* ── Print / export hint ── */
+    .hint {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #a0aec0;
+      margin-top: 20px;
+    }
+
+    @media print {
+      body { background: #fff; padding: 8px; }
+      .hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>SƠ ĐỒ CƠ CẤU TỔ CHỨC</h1>
+<p class="subtitle">KHU DU LỊCH HÀ TĨNH &nbsp;|&nbsp; Quy mô: &gt; 500 nhân sự</p>
+
+<div class="tree">
+
+  <!-- Level 1: HĐQT -->
+  <div class="box lvl-hdqt">HỘI ĐỒNG QUẢN TRỊ</div>
+
+  <div class="v-line v-line-md"></div>
+
+  <!-- Level 2: Ban TGĐ -->
+  <div class="box lvl-bgd">BAN TỔNG GIÁM ĐỐC</div>
+  <div class="v-line v-line-md"></div>
+
+  <!-- === HORIZONTAL BRANCHES (8 khối) === -->
+  <!-- Outer wrapper to draw horizontal bar -->
+  <div style="position:relative; display:flex; justify-content:center;">
+
+    <!-- Top horizontal line spanning all 8 columns -->
+    <div style="position:absolute; top:0; left:10%; right:10%; height:2px; background:#90cdf4;"></div>
+
+    <div style="display:flex; align-items:flex-start; gap:0; padding-top:2px;">
+
+      <!-- ① Khối Quản lý & Điều hành -->
+      <div class="branch-col" style="min-width:175px;">
+        <div class="v-line v-line-sm"></div>
+        <div class="box lvl-khoi" style="background:#276749; font-size:0.75rem; padding:8px 12px; text-align:center;">
+          KHỐI<br/>QUẢN LÝ & ĐIỀU HÀNH
+        </div>
+        <div class="v-line v-line-sm"></div>
+        <div class="sub-list">
+          <div class="box lvl-phong">P. Hành chính – Nhân sự</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-to">Tuyển dụng</div>
+          <div class="box lvl-to">Lương – BHXH</div>
+          <div class="box lvl-to">Đào tạo & PTNS</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">P. Tài chính – Kế toán</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">P. Pháp chế – Tuân thủ</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">P. Công nghệ thông tin</div>
+        </div>
+      </div>
+
+      <!-- ② Khối Kinh doanh & Marketing -->
+      <div class="branch-col" style="min-width:175px;">
+        <div class="v-line v-line-sm"></div>
+        <div class="box lvl-khoi" style="background:#744210; font-size:0.75rem; padding:8px 12px; text-align:center;">
+          KHỐI<br/>KINH DOANH & MARKETING
+        </div>
+        <div class="v-line v-line-sm"></div>
+        <div class="sub-list">
+          <div class="box lvl-phong">P. Kinh doanh – Bán hàng</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">P. Marketing & Truyền thông</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">P. Quan hệ khách hàng (CRM)</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">P. Đặt phòng & Revenue</div>
+        </div>
+      </div>
+
+      <!-- ③ Khối Lưu trú -->
+      <div class="branch-col" style="min-width:165px;">
+        <div class="v-line v-line-sm"></div>
+        <div class="box lvl-khoi" style="background:#2b6cb0; font-size:0.75rem; padding:8px 12px; text-align:center;">
+          KHỐI<br/>LƯU TRÚ
+        </div>
+        <div class="v-line v-line-sm"></div>
+        <div class="sub-list">
+          <div class="box lvl-phong">Ban Lễ tân (Front Office)</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-to">Lễ tân chính</div>
+          <div class="box lvl-to">Concierge / Bell</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">Ban Buồng phòng (HK)</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">Ban Bảo trì – Kỹ thuật</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">Ban Cảnh quan – Môi trường</div>
+        </div>
+      </div>
+
+      <!-- ④ Khối Ẩm thực F&B -->
+      <div class="branch-col" style="min-width:175px;">
+        <div class="v-line v-line-sm"></div>
+        <div class="box lvl-khoi" style="background:#c05621; font-size:0.75rem; padding:8px 12px; text-align:center;">
+          KHỐI<br/>ẨM THỰC (F&amp;B)
+        </div>
+        <div class="v-line v-line-sm"></div>
+        <div class="sub-list">
+          <div class="box lvl-phong">Nhà hàng chính (All-Day)</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">Nhà hàng đặc sản Hà Tĩnh</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">Bar – Café – Rooftop</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">Bếp trung tâm & Pastry</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">Tổ Tiệc & Banquet</div>
+        </div>
+      </div>
+
+      <!-- ⑤ Khối Vui chơi & Giải trí -->
+      <div class="branch-col" style="min-width:185px;">
+        <div class="v-line v-line-sm"></div>
+        <div class="box lvl-khoi" style="background:#553c9a; font-size:0.75rem; padding:8px 12px; text-align:center;">
+          KHỐI<br/>VUI CHƠI & GIẢI TRÍ
+        </div>
+        <div class="v-line v-line-sm"></div>
+        <div class="sub-list">
+          <div class="box lvl-phong">Trung tâm thể thao – Outdoor</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">Khu vui chơi – Công viên</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">Tổ chức sự kiện & MICE</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong" style="border-color:#d69e2e; background:#fffff0;">
+            Đội Nghệ thuật Dân gian
+            <span class="badge">Đặc thù HT</span>
+          </div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-to" style="border-color:#d69e2e;">Hát Ví Dặm Nghệ Tĩnh</div>
+          <div class="box lvl-to" style="border-color:#d69e2e;">Múa – Nhạc dân tộc</div>
+          <div class="box lvl-to" style="border-color:#d69e2e;">Biểu diễn lễ hội</div>
+        </div>
+      </div>
+
+      <!-- ⑥ Khối Spa & Wellness -->
+      <div class="branch-col" style="min-width:165px;">
+        <div class="v-line v-line-sm"></div>
+        <div class="box lvl-khoi" style="background:#285e61; font-size:0.75rem; padding:8px 12px; text-align:center;">
+          KHỐI<br/>SPA &amp; WELLNESS
+        </div>
+        <div class="v-line v-line-sm"></div>
+        <div class="sub-list">
+          <div class="box lvl-phong">Spa – Massage – Trị liệu</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">Gym – Yoga – Fitness</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">Hồ bơi – Bãi biển</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">Dịch vụ chăm sóc sức khỏe</div>
+        </div>
+      </div>
+
+      <!-- ⑦ Khối An ninh -->
+      <div class="branch-col" style="min-width:155px;">
+        <div class="v-line v-line-sm"></div>
+        <div class="box lvl-khoi" style="background:#742a2a; font-size:0.75rem; padding:8px 12px; text-align:center;">
+          KHỐI<br/>AN NINH – TRẬT TỰ
+        </div>
+        <div class="v-line v-line-sm"></div>
+        <div class="sub-list">
+          <div class="box lvl-phong">Đội bảo vệ – an ninh 24/7</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">PCCC – An toàn</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-phong">Kiểm soát ra vào (Access)</div>
+        </div>
+      </div>
+
+      <!-- ⑧ Khối Cộng tác viên -->
+      <div class="branch-col" style="min-width:185px;">
+        <div class="v-line v-line-sm"></div>
+        <div class="box lvl-ctv" style="font-size:0.75rem; padding:8px 12px; text-align:center; font-weight:700;">
+          KHỐI<br/>CỘNG TÁC VIÊN
+          <span class="badge">CTV</span>
+        </div>
+        <div class="v-line v-line-sm"></div>
+        <div class="sub-list">
+          <div class="box lvl-ctv">Nghệ nhân Hát chèo / Ví Dặm</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-ctv">Hướng dẫn viên địa phương</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-ctv">Nhiếp ảnh gia – Content Creator</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-ctv">CTV thời vụ (lễ hội, sự kiện)</div>
+          <div class="v-line v-line-sm"></div>
+          <div class="box lvl-ctv">Chuyên gia / Tư vấn độc lập</div>
+        </div>
+      </div>
+
+    </div><!-- end flex -->
+  </div><!-- end outer wrapper -->
+
+</div><!-- end tree -->
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#1a365d;"></div>
+    <span>Hội đồng / Ban lãnh đạo</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#2c7a7b;"></div>
+    <span>Khối chức năng</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#fff; border:1.5px solid #90cdf4;"></div>
+    <span>Phòng / Ban nghiệp vụ</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#f7fafc; border:1px solid #bee3f8;"></div>
+    <span>Tổ / Đội trực thuộc</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#fffaf0; border:1.5px dashed #f6ad55;"></div>
+    <span>Cộng tác viên (ngoài biên chế)</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#fffff0; border:1.5px solid #d69e2e;"></div>
+    <span><span class="badge">Đặc thù HT</span> Nghệ thuật đặc thù Hà Tĩnh</span>
+  </div>
+</div>
+
+<p class="hint">Nhấn Ctrl+P để in / xuất PDF &nbsp;|&nbsp; Dự án: KDL Hà Tĩnh &nbsp;|&nbsp; Phiên bản: v1.0 – 2026</p>
+
+</body>
+</html>

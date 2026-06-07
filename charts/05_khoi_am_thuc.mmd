@@ -1,0 +1,33 @@
+graph TD
+    K4["🍽️ KHỐI ẨM THỰC – F&B\n(Phó TGĐ Vận hành phụ trách)"]
+
+    K4 --> P4A["Nhà hàng chính (All-Day Dining)"]
+    K4 --> P4B["Nhà hàng đặc sản Hà Tĩnh"]
+    K4 --> P4C["Bar – Café – Rooftop Lounge"]
+    K4 --> P4D["Bếp trung tâm & Pastry"]
+    K4 --> P4E["Tổ Tiệc & Banquet"]
+
+    P4A --> T1["Tổ Phục vụ bàn (Waitstaff)"]
+    P4A --> T2["Tổ Thu ngân – Order"]
+
+    P4B --> T3["Bếp đặc sản Hà Tĩnh"]
+    P4B --> T4["Tổ Trình bày – Truyền thông món"]
+
+    P4C --> T5["Bartender – Barista"]
+    P4C --> T6["Phục vụ Bar – Lounge"]
+
+    P4D --> T7["Tổ Bếp nóng (Hot Kitchen)"]
+    P4D --> T8["Tổ Bếp nguội (Cold Kitchen)"]
+    P4D --> T9["Tổ Bánh – Pastry & Bakery"]
+    P4D --> T10["Tổ Bếp người quản lý kho"]
+
+    P4E --> T11["Tổ Setup tiệc – Décor bàn"]
+    P4E --> T12["Tổ Phục vụ sự kiện – Banquet"]
+
+    classDef khoi  fill:#c05621,color:#fff,stroke:#c05621,font-weight:bold
+    classDef phong fill:#fff5eb,color:#2d3748,stroke:#fbd38d,font-weight:600
+    classDef to    fill:#fffaf0,color:#4a5568,stroke:#feebc8
+
+    class K4 khoi
+    class P4A,P4B,P4C,P4D,P4E phong
+    class T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12 to
