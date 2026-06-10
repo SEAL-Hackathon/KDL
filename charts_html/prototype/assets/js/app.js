@@ -6,6 +6,7 @@
   var MODULE_FILTER_KEY = 'kdl_prototype_module_filter_v1';
 
   var MODULES = [
+    { id: 'hub', code: 'HUB', label: 'Điều phối', org: [] },
     { id: 'op', code: 'OP', label: 'Vận hành', org: ['lt-reception','lt-don-phong','lt-kiem-phong','fb-phuc-vu-ban','fb-thu-ngan','lt-dien','lt-co-khi','an-truc-ngay','an-truc-dem'] },
     { id: 'bk', code: 'BK', label: 'Booking', org: ['kd-dat-phong','kd-noi-dung','kd-thiet-ke','kd-revenue','lt-reception'] },
     { id: 'hr', code: 'HR', label: 'Nhân sự', org: ['ql-tuyen-dung','ql-luong-bhxh','ql-dao-tao','ql-hanh-chinh','ctv-hat-vi-dam'] },
@@ -18,8 +19,9 @@
   ];
 
   var SCREENS = {
+    hub: [['workcenter','Work Center']],
     op: [
-      ['dashboard','Dashboard vận hành'], ['control','Trung tâm vận hành'], ['rooms','Sơ đồ phòng'], ['housekeeping','Dọn phòng & inspection'], ['pos','POS F&B'],
+      ['dashboard','Dashboard vận hành'], ['workcenter','Work Center'], ['control','Trung tâm vận hành'], ['rooms','Sơ đồ phòng'], ['housekeeping','Dọn phòng & inspection'], ['pos','POS F&B'],
       ['checkin','Check-in/out'], ['requests','Yêu cầu & khiếu nại'], ['tech','Sự cố kỹ thuật'], ['security','Nhật ký an ninh'], ['reports','Báo cáo ngày']
     ],
     bk: [['public','Web booking khách'], ['admin','Dashboard booking'], ['orders','Danh sách đơn'], ['cms','CMS dịch vụ'], ['vouchers','Voucher'], ['reports','Báo cáo']],
@@ -33,8 +35,9 @@
   };
 
   var SCREEN_PREFIX = {
+    hub: { workcenter: [] },
     op: {
-      dashboard: ['OP'], control: ['OP'], rooms: ['OP-ROOM'], housekeeping: ['OP-ROOM'], pos: ['OP-FNB'],
+      dashboard: ['OP'], workcenter: ['OP'], control: ['OP'], rooms: ['OP-ROOM'], housekeeping: ['OP-ROOM'], pos: ['OP-FNB'],
       checkin: ['OP-CHK'], requests: ['OP-SVC'], tech: ['OP-TECH'], security: ['OP-SEC'], reports: ['OP-RPT']
     },
     bk: {
@@ -188,6 +191,17 @@
     data.op.checkouts = data.op.checkouts || [];
     data.op.housekeeping = data.op.housekeeping || [];
     data.op.requests = data.op.requests || [];
+    data.op.techTickets = data.op.techTickets || base.op.techTickets || [];
+    data.bk.bookings = data.bk.bookings || base.bk.bookings || [];
+    data.bk.services = data.bk.services || base.bk.services || [];
+    data.bk.vouchers = data.bk.vouchers || base.bk.vouchers || [];
+    data.bk.reviews = data.bk.reviews || base.bk.reviews || [];
+    data.hr.employees = data.hr.employees || base.hr.employees || [];
+    data.hr.leaves = data.hr.leaves || base.hr.leaves || [];
+    data.hr.payroll = data.hr.payroll || base.hr.payroll || [];
+    data.hr.ctv = data.hr.ctv || base.hr.ctv || [];
+    data.fm.expenses = data.fm.expenses || base.fm.expenses || [];
+    data.vt.stock = data.vt.stock || base.vt.stock || [];
     data.op.requests.forEach(function (request) {
       request.dueMin = request.dueMin || (request.type === 'Khiếu nại' ? 30 : 15);
       if (!request.openedAt) {
@@ -421,6 +435,7 @@
   }
 
   function canViewModule(id) {
+    if (id === 'hub') return true;
     var mod = MODULES.find(function (m) { return m.id === id; });
     return !!mod && roleModules().indexOf(mod.code) >= 0;
   }
@@ -474,6 +489,7 @@
     if (action === 'expense-create') return canMakeExpense();
     if (action === 'expense-approve') return canApproveExpense();
     if (action === 'booking-checkin') return roleHasPrefix('BK-ADM') || roleHasPrefix('OP-CHK');
+    if (action === 'tech') return roleHasPrefix('OP-TECH') || roleHasPrefix('VT-MNT');
     return true;
   }
 
@@ -727,6 +743,7 @@
     renderNav(route);
     var app = document.getElementById('app');
     var mod = route.moduleId;
+    if (mod === 'hub') app.innerHTML = renderHUB(route.view);
     if (mod === 'op') app.innerHTML = renderOP(route.view);
     if (mod === 'bk') app.innerHTML = renderBK(route.view);
     if (mod === 'hr') app.innerHTML = renderHR(route.view);
@@ -736,6 +753,10 @@
     if (mod === 'vg') app.innerHTML = renderVG(route.view);
     if (mod === 'nt') app.innerHTML = renderNT(route.view);
     if (mod === 'it') app.innerHTML = renderIT(route.view);
+  }
+
+  function renderHUB(view) {
+    return page('hub', view, renderWorkCenter(), 'Hàng đợi điều phối toàn khu: gom việc từ Booking, Lễ tân, F&B, Buồng phòng, Tài chính, Vật tư, Nhân sự và Kỹ thuật. Nút thao tác tự khóa/mở theo vai trò đang chọn.');
   }
 
   function renderOP(view) {
@@ -750,6 +771,7 @@
       { label: 'SLA đỏ/vàng', value: issues, note: 'sự cố kỹ thuật mở', tone: issues ? 'red' : 'green' }
     ]);
     if (view === 'dashboard') body += renderWorkflowSummary();
+    if (view === 'workcenter') body += renderWorkCenter();
     if (view === 'control') body += renderOpsControl();
     if (view === 'rooms' || view === 'dashboard') body += renderRooms();
     if (view === 'housekeeping') body += renderHousekeeping();
@@ -839,6 +861,191 @@
         { label: 'Phòng', key: 'room' }, { label: 'NV', key: 'staff' }, { label: 'Trạng thái', key: 'inspection' }, { label: 'Thao tác', render: function (r) { return '<button class="btn btn-primary" data-action="advance-housekeeping" data-room="' + r.room + '" type="button" ' + (!canAction('housekeeping') ? 'disabled' : '') + '>Chuyển bước</button>'; } }
       ], housekeepingRows, 'Không có phòng chờ dọn/kiểm.')) +
     '</div>';
+  }
+
+  function priorityTone(priority) {
+    if (priority === 'P1') return 'red';
+    if (priority === 'P2') return 'yellow';
+    return 'gray';
+  }
+
+  function workItems() {
+    var items = [];
+    state.bk.bookings.filter(function (booking) {
+      return ['Đã xác nhận', 'Chờ xác nhận'].indexOf(booking.status) >= 0 && booking.item.indexOf('Phòng') >= 0;
+    }).forEach(function (booking) {
+      items.push({
+        id: 'BK:' + booking.id,
+        module: 'BK/OP',
+        priority: booking.from <= todayText() ? 'P1' : 'P2',
+        title: 'Đẩy check-in cho ' + booking.guest,
+        owner: 'Lễ tân / Booking',
+        due: booking.from + ' → ' + booking.to,
+        status: booking.status,
+        action: '<button class="btn btn-primary" data-action="booking-to-checkin" data-id="' + booking.id + '" type="button" ' + (!canAction('booking-checkin') ? 'disabled' : '') + '>Đẩy check-in</button>'
+      });
+    });
+
+    state.op.checkins.filter(function (ci) { return ci.status === 'Đang lưu trú'; }).forEach(function (ci) {
+      var blockers = checkoutBlockers(ci);
+      items.push({
+        id: 'CI:' + ci.id,
+        module: 'OP/FM',
+        priority: blockers.length ? 'P1' : 'P2',
+        title: (blockers.length ? 'Gỡ chặn checkout ' : 'Checkout sẵn sàng ') + ci.room,
+        owner: blockers.length ? 'Lễ tân / F&B' : 'Lễ tân / Thu ngân',
+        due: 'Trong ca hiện tại',
+        status: blockers.length ? blockers.join('; ') : UI.money(checkoutAmount(ci)),
+        action: '<button class="btn btn-warn" data-action="open-checkout" data-id="' + ci.id + '" type="button" ' + (!canAction('checkin') ? 'disabled' : '') + '>Mở hóa đơn</button>'
+      });
+    });
+
+    state.op.orders.filter(function (order) {
+      var finalStatus = order.chargeToRoom ? 'Chờ check-out' : 'Đã thanh toán';
+      return order.status !== finalStatus && order.status !== 'Đã tính tiền';
+    }).forEach(function (order) {
+      items.push({
+        id: 'OD:' + order.id,
+        module: 'OP/F&B',
+        priority: order.status === 'Đang bếp' ? 'P2' : 'P3',
+        title: 'Order ' + order.id + ' tại ' + order.table,
+        owner: 'Bếp / Thu ngân F&B',
+        due: order.chargeToRoom ? 'Charge phòng' : 'Thanh toán tại bàn',
+        status: order.status,
+        action: '<button class="btn btn-primary" data-action="advance-order" data-id="' + order.id + '" type="button" ' + (!canAction('pos') ? 'disabled' : '') + '>Chuyển bước</button>'
+      });
+    });
+
+    state.op.housekeeping.filter(function (task) { return task.inspection !== 'Đạt'; }).forEach(function (task) {
+      items.push({
+        id: 'HK:' + task.room,
+        module: 'OP/HK',
+        priority: task.inspection === 'Không đạt' ? 'P1' : 'P2',
+        title: 'Dọn/kiểm phòng ' + task.room,
+        owner: task.staff,
+        due: task.shift,
+        status: task.inspection,
+        action: '<button class="btn btn-primary" data-action="advance-housekeeping" data-room="' + task.room + '" type="button" ' + (!canAction('housekeeping') ? 'disabled' : '') + '>Chuyển bước</button>'
+      });
+    });
+
+    state.op.requests.filter(function (request) { return request.status !== 'Hoàn tất'; }).forEach(function (request) {
+      var s = slaInfo(request);
+      items.push({
+        id: 'SLA:' + request.id,
+        module: 'OP/SLA',
+        priority: s.remain < 0 ? 'P1' : (s.remain <= 5 ? 'P2' : 'P3'),
+        title: request.type + ' phòng ' + request.room,
+        owner: request.assigned,
+        due: s.text,
+        status: request.status,
+        action: '<button class="btn btn-primary" data-action="advance-request" data-id="' + request.id + '" type="button" ' + (!canAction('request') ? 'disabled' : '') + '>Chuyển bước</button>'
+      });
+    });
+
+    state.op.techTickets.filter(function (ticket) { return ticket.status !== 'Đã đóng'; }).forEach(function (ticket) {
+      items.push({
+        id: 'TECH:' + ticket.id,
+        module: 'OP/VT',
+        priority: ticket.priority === 'P2' ? 'P2' : 'P3',
+        title: ticket.issue + ' · ' + ticket.location,
+        owner: ticket.priority === 'P2' ? 'Kỹ thuật trực' : 'Bảo trì',
+        due: ticket.priority,
+        status: ticket.status,
+        action: '<button class="btn btn-primary" data-action="close-tech" data-id="' + ticket.id + '" type="button" ' + (!canAction('tech') ? 'disabled' : '') + '>Đóng sự cố</button>'
+      });
+    });
+
+    state.fm.expenses.filter(function (expense) { return expense.status.indexOf('Chờ') === 0; }).forEach(function (expense) {
+      items.push({
+        id: 'EXP:' + expense.id,
+        module: 'FM',
+        priority: expense.level === 'TGĐ' ? 'P1' : 'P2',
+        title: 'Duyệt phiếu chi ' + expense.id,
+        owner: expense.level,
+        due: UI.money(expense.amount),
+        status: expense.status,
+        action: '<button class="btn btn-primary" data-action="approve-expense" data-id="' + expense.id + '" type="button" ' + (!canAction('expense-approve') ? 'disabled' : '') + '>Duyệt</button>'
+      });
+    });
+
+    state.vt.stock.filter(function (stock) { return stock.status !== 'Đủ'; }).forEach(function (stock) {
+      items.push({
+        id: 'STK:' + stock.code,
+        module: 'VT',
+        priority: stock.onhand < stock.min ? 'P2' : 'P3',
+        title: 'Bổ sung tồn kho ' + stock.name,
+        owner: 'Kho / Mua hàng',
+        due: stock.onhand + '/' + stock.min + ' ' + stock.unit,
+        status: stock.status,
+        action: '<a class="btn btn-ghost" href="#vt/stock">Mở kho</a>'
+      });
+    });
+
+    state.hr.leaves.filter(function (leave) { return leave.status === 'Chờ duyệt'; }).forEach(function (leave) {
+      items.push({
+        id: 'LEA:' + leave.id,
+        module: 'HR',
+        priority: 'P3',
+        title: 'Duyệt phép ' + leave.name,
+        owner: leave.dept,
+        due: leave.days,
+        status: leave.status,
+        action: '<a class="btn btn-ghost" href="#hr/leave">Mở phép</a>'
+      });
+    });
+
+    return items.sort(function (a, b) {
+      var rank = { P1: 1, P2: 2, P3: 3 };
+      return rank[a.priority] - rank[b.priority] || a.module.localeCompare(b.module);
+    });
+  }
+
+  function renderWorkBoard(items) {
+    var modules = Array.from(new Set(items.map(function (item) { return item.module; })));
+    if (!modules.length) return '<div class="empty">Không còn việc mở trong hàng đợi vận hành.</div>';
+    return '<div class="work-board">' + modules.map(function (module) {
+      var rows = items.filter(function (item) { return item.module === module; }).slice(0, 5);
+      return '<section class="work-column"><div class="work-column-head"><b>' + UI.esc(module) + '</b><span>' + rows.length + '</span></div>' +
+        rows.map(function (item) {
+          return '<div class="work-card"><div>' + UI.badge(item.priority, priorityTone(item.priority)) + '</div>' +
+            '<strong>' + UI.esc(item.title) + '</strong>' +
+            '<div class="work-meta">' + UI.esc(item.owner) + ' · ' + UI.esc(item.due) + '</div>' +
+            '<div class="work-status">' + UI.esc(item.status) + '</div>' +
+          '</div>';
+        }).join('') + '</section>';
+    }).join('') + '</div>';
+  }
+
+  function renderWorkCenter() {
+    var items = workItems();
+    var p1 = items.filter(function (item) { return item.priority === 'P1'; }).length;
+    var p2 = items.filter(function (item) { return item.priority === 'P2'; }).length;
+    var blocked = healthIssues().filter(function (issue) { return issue.severity === 'P1'; }).length;
+    var rows = items.slice(0, 18);
+    return UI.kpi([
+      { label: 'Việc đang mở', value: items.length, note: 'gom từ OP/BK/FM/VT/HR', tone: 'blue' },
+      { label: 'P1 cần xử lý', value: p1, note: blocked + ' cảnh báo dữ liệu P1', tone: p1 ? 'red' : 'green' },
+      { label: 'P2 trong ca', value: p2, note: 'ưu tiên điều phối', tone: 'yellow' },
+      { label: 'Audit trail', value: state.audit.length, note: 'thao tác đã ghi', tone: 'teal' }
+    ]) +
+    '<div class="grid-2">' +
+      UI.panel('Hàng đợi ưu tiên', UI.table([
+        { label: 'Mức', render: function (r) { return UI.badge(r.priority, priorityTone(r.priority)); } },
+        { label: 'Việc', render: function (r) { return '<b>' + UI.esc(r.title) + '</b><div class="fnb-seat">' + UI.esc(r.id) + ' · ' + UI.esc(r.module) + '</div>'; } },
+        { label: 'Phụ trách', key: 'owner' },
+        { label: 'Hạn/SLA', key: 'due' },
+        { label: 'Trạng thái', key: 'status' },
+        { label: 'Thao tác', render: function (r) { return r.action; } }
+      ], rows, 'Không có việc cần xử lý.')) +
+      UI.panel('Bảng điều phối', renderWorkBoard(items)) +
+    '</div>' +
+    UI.panel('Cảnh báo kiểm soát nhanh', UI.table([
+      { label: 'Module', key: 'area' },
+      { label: 'Loại', key: 'type' },
+      { label: 'Mức', render: function (r) { return UI.badge(r.severity, r.severity === 'P1' ? 'red' : (r.severity === 'P2' ? 'yellow' : 'gray')); } },
+      { label: 'Chi tiết', key: 'detail' }
+    ], healthIssues().slice(0, 8), 'State hiện tại chưa có cảnh báo kiểm soát.'), '<a class="btn btn-ghost" href="#it/health">Mở Health check</a>');
   }
 
   function renderHousekeeping() {
@@ -1291,6 +1498,16 @@
     }
     if (action === 'print-window') {
       window.print();
+    }
+    if (action === 'close-tech') {
+      var ticket = state.op.techTickets.find(function (item) { return item.id === actionEl.dataset.id; });
+      if (ticket && canAction('tech')) {
+        var beforeTicket = clone(ticket);
+        ticket.status = 'Đã đóng';
+        ticket.after = ticket.after === 'Chưa có' ? 'Ảnh sau xử lý đã nhận' : ticket.after;
+        audit('TECH_TICKET_CLOSE', 'Đóng sự cố kỹ thuật ' + ticket.id, beforeTicket, ticket);
+        persist('Đã đóng sự cố kỹ thuật ' + ticket.id, 'success');
+      }
     }
     if (action === 'advance-housekeeping' || action === 'fail-housekeeping') {
       var task = state.op.housekeeping.find(function (item) { return item.room === actionEl.dataset.room && item.inspection !== 'Đạt'; });
