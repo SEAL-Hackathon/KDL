@@ -19,7 +19,7 @@
   ];
 
   var SCREENS = {
-    hub: [['workcenter','Work Center']],
+    hub: [['workcenter','Work Center'], ['roles','Vai trò & quyền'], ['modules','Bản đồ phân hệ'], ['journey','Luồng demo']],
     op: [
       ['dashboard','Dashboard vận hành'], ['workcenter','Work Center'], ['control','Trung tâm vận hành'], ['rooms','Sơ đồ phòng'], ['housekeeping','Dọn phòng & inspection'], ['pos','POS F&B'],
       ['checkin','Check-in/out'], ['requests','Yêu cầu & khiếu nại'], ['tech','Sự cố kỹ thuật'], ['security','Nhật ký an ninh'], ['reports','Báo cáo ngày']
@@ -35,7 +35,7 @@
   };
 
   var SCREEN_PREFIX = {
-    hub: { workcenter: [] },
+    hub: { workcenter: [], roles: [], modules: [], journey: [] },
     op: {
       dashboard: ['OP'], workcenter: ['OP'], control: ['OP'], rooms: ['OP-ROOM'], housekeeping: ['OP-ROOM'], pos: ['OP-FNB'],
       checkin: ['OP-CHK'], requests: ['OP-SVC'], tech: ['OP-TECH'], security: ['OP-SEC'], reports: ['OP-RPT']
@@ -396,7 +396,7 @@
     if (r.orgKey && SOURCE.frMap && SOURCE.frMap[r.orgKey]) prefixes = prefixes.concat(SOURCE.frMap[r.orgKey]);
     if (r.modules) prefixes = prefixes.concat(r.modules);
     if (r.extraModules) prefixes = prefixes.concat(r.extraModules);
-    if (r.all) prefixes = MODULES.map(function (m) { return m.code; });
+    if (r.all) prefixes = MODULES.filter(function (m) { return m.id !== 'hub'; }).map(function (m) { return m.code; });
     return Array.from(new Set(prefixes));
   }
 
@@ -405,7 +405,7 @@
   }
 
   function roleModulesFor(r) {
-    if (r.all) return MODULES.map(function (m) { return m.code; });
+    if (r.all) return MODULES.filter(function (m) { return m.id !== 'hub'; }).map(function (m) { return m.code; });
     var modules = (r.modules || []).slice();
     var prefixes = [];
     if (r.orgKey && SOURCE.frMap && SOURCE.frMap[r.orgKey]) prefixes = prefixes.concat(SOURCE.frMap[r.orgKey]);
@@ -756,7 +756,150 @@
   }
 
   function renderHUB(view) {
-    return page('hub', view, renderWorkCenter(), 'Hàng đợi điều phối toàn khu: gom việc từ Booking, Lễ tân, F&B, Buồng phòng, Tài chính, Vật tư, Nhân sự và Kỹ thuật. Nút thao tác tự khóa/mở theo vai trò đang chọn.');
+    var body = '';
+    if (view === 'workcenter') body = renderWorkCenter();
+    if (view === 'roles') body = renderRoleConsole();
+    if (view === 'modules') body = renderModuleMap();
+    if (view === 'journey') body = renderDemoJourney();
+    return page('hub', view, body, 'Lớp điều phối hi-fi: nhìn nhanh hàng đợi, role, quyền, phân hệ và luồng nghiệp vụ end-to-end của toàn khu.');
+  }
+
+  function roleHasPrefixFor(r, prefix) {
+    if (r.all) return true;
+    return roleFrPrefixes(r).some(function (item) {
+      return item === prefix || item.indexOf(prefix) === 0 || prefix.indexOf(item) === 0;
+    });
+  }
+
+  function canActionFor(r, action) {
+    if (r.all) return true;
+    if (action === 'pos') return roleHasPrefixFor(r, 'OP-FNB');
+    if (action === 'checkin') return roleHasPrefixFor(r, 'OP-CHK') || roleHasPrefixFor(r, 'BK-ADM');
+    if (action === 'housekeeping') return roleHasPrefixFor(r, 'OP-ROOM');
+    if (action === 'request') return roleHasPrefixFor(r, 'OP-SVC');
+    if (action === 'expense-create') return !!r.canMakeExpense || r.id === 'thu_quy';
+    if (action === 'expense-approve') return !!r.canApproveExpense;
+    if (action === 'booking-checkin') return roleHasPrefixFor(r, 'BK-ADM') || roleHasPrefixFor(r, 'OP-CHK');
+    if (action === 'tech') return roleHasPrefixFor(r, 'OP-TECH') || roleHasPrefixFor(r, 'VT-MNT');
+    return true;
+  }
+
+  function reqCountForModule(code) {
+    return Object.keys(SOURCE.reqs || {}).filter(function (key) {
+      return SOURCE.reqs[key] && SOURCE.reqs[key].module === code;
+    }).length;
+  }
+
+  function orgName(key) {
+    return SOURCE.toData && SOURCE.toData[key] ? SOURCE.toData[key].name : key;
+  }
+
+  function renderRoleConsole() {
+    var current = role();
+    var modules = MODULES.filter(function (m) { return m.id !== 'hub'; });
+    var allowedCodes = roleModulesFor(current);
+    var prefixes = roleFrPrefixes(current).filter(function (p) { return p.length > 2; });
+    var actions = [
+      ['pos', 'POS F&B'], ['checkin', 'Check-in/out'], ['housekeeping', 'Buồng phòng'],
+      ['request', 'SLA yêu cầu'], ['booking-checkin', 'Booking → Check-in'],
+      ['expense-create', 'Lập phiếu chi'], ['expense-approve', 'Duyệt chi'], ['tech', 'Đóng sự cố']
+    ];
+    var moduleRows = modules.map(function (m) {
+      var visible = visibleScreens(m.id).length;
+      var total = (SCREENS[m.id] || []).length;
+      var teams = (m.org || []).slice(0, 3).map(orgName).join(', ');
+      return {
+        code: m.code,
+        label: m.label,
+        access: allowedCodes.indexOf(m.code) >= 0,
+        screens: visible + '/' + total,
+        fr: reqCountForModule(m.code),
+        teams: teams + ((m.org || []).length > 3 ? ' +' + ((m.org || []).length - 3) : '')
+      };
+    });
+    var roleRows = ROLES.map(function (r) {
+      var mods = roleModulesFor(r).join(', ');
+      var pfx = roleFrPrefixes(r).filter(function (p) { return p.length > 2; }).slice(0, 5).join(', ');
+      return {
+        id: r.id,
+        group: r.group || 'Khác',
+        role: r.label,
+        scope: r.scope,
+        modules: r.all ? 'ALL' : mods,
+        prefixes: pfx + (roleFrPrefixes(r).length > 5 ? '...' : '')
+      };
+    });
+    return UI.kpi([
+      { label: 'Role đang chọn', value: current.label, note: 'scope ' + current.scope, tone: 'blue' },
+      { label: 'Phân hệ được cấp', value: allowedCodes.length, note: allowedCodes.join(', ') || 'chưa có', tone: 'green' },
+      { label: 'FR prefix', value: prefixes.length, note: prefixes.slice(0, 3).join(', ') || 'module-level', tone: 'teal' },
+      { label: 'Tổng role', value: ROLES.length, note: ROLES.filter(function (r) { return r.generated; }).length + ' sinh từ FR_MAP', tone: 'yellow' }
+    ]) +
+    '<div class="grid-2">' +
+      UI.panel('Hồ sơ vai trò', '<div class="role-profile"><div><b>' + UI.esc(current.label) + '</b><p>' + UI.esc(roleSummary()) + '</p></div><div class="permission-grid">' + actions.map(function (item) {
+        var allowed = canActionFor(current, item[0]);
+        return '<div class="permission-item"><span>' + UI.esc(item[1]) + '</span>' + UI.badge(allowed ? 'Cho phép' : 'Khóa', allowed ? 'green' : 'gray') + '</div>';
+      }).join('') + '</div></div>') +
+      UI.panel('Phân hệ theo vai trò hiện tại', UI.table([
+        { label: 'Mã', key: 'code' },
+        { label: 'Phân hệ', key: 'label' },
+        { label: 'Truy cập', render: function (r) { return UI.badge(r.access ? 'Có' : 'Không', r.access ? 'green' : 'gray'); } },
+        { label: 'Màn hình', key: 'screens' },
+        { label: 'FR', key: 'fr' },
+        { label: 'Tổ phụ trách', key: 'teams' }
+      ], moduleRows)) +
+    '</div>' +
+    UI.panel('Danh mục toàn bộ role', UI.table([
+      { label: 'Chọn', render: function (r) { return '<button class="btn btn-primary" data-action="set-role" data-id="' + UI.esc(r.id) + '" type="button">Chọn</button>'; } },
+      { label: 'Nhóm', key: 'group' },
+      { label: 'Vai trò', key: 'role' },
+      { label: 'Scope', render: function (r) { return UI.badge(r.scope, r.scope === 'all' ? 'green' : (r.scope === 'own' ? 'purple' : 'blue')); } },
+      { label: 'Phân hệ', key: 'modules' },
+      { label: 'FR prefix', key: 'prefixes' }
+    ], roleRows));
+  }
+
+  function renderModuleMap() {
+    var currentCodes = roleModules();
+    var cards = MODULES.filter(function (m) { return m.id !== 'hub'; }).map(function (m) {
+      var screens = (SCREENS[m.id] || []).map(function (s) {
+        var active = canViewScreen(m.id, s[0]);
+        return '<span class="screen-pill ' + (active ? 'screen-on' : 'screen-off') + '">' + UI.esc(s[1]) + '</span>';
+      }).join('');
+      var teams = (m.org || []).map(function (key) {
+        return '<span class="team-chip">' + UI.esc(orgName(key)) + '</span>';
+      }).join('');
+      var schemaCount = SOURCE.schema && SOURCE.schema[m.code] ? SOURCE.schema[m.code].length : 0;
+      return '<section class="module-card">' +
+        '<div class="module-card-head"><div><span>' + UI.esc(m.code) + '</span><h3>' + UI.esc(m.label) + '</h3></div>' + UI.badge(currentCodes.indexOf(m.code) >= 0 ? 'Role thấy' : 'Role khóa', currentCodes.indexOf(m.code) >= 0 ? 'green' : 'gray') + '</div>' +
+        '<div class="module-metrics"><b>' + reqCountForModule(m.code) + '</b><small>FR</small><b>' + schemaCount + '</b><small>Entity</small><b>' + (SCREENS[m.id] || []).length + '</b><small>Màn</small></div>' +
+        '<div class="screen-pills">' + screens + '</div>' +
+        '<div class="team-row">' + (teams || '<span class="team-chip">Điều phối chung</span>') + '</div>' +
+      '</section>';
+    }).join('');
+    return UI.kpi([
+      { label: 'Phân hệ nghiệp vụ', value: MODULES.length - 1, note: 'không tính lớp Điều phối', tone: 'blue' },
+      { label: 'Màn hình mock', value: Object.keys(SCREENS).reduce(function (sum, key) { return key === 'hub' ? sum : sum + SCREENS[key].length; }, 0), note: 'đã map theo RBAC', tone: 'green' },
+      { label: 'FR đã nạp', value: Object.keys(SOURCE.reqs || {}).length, note: 'charts_html/data', tone: 'teal' },
+      { label: 'Role đang thấy', value: currentCodes.length, note: role().label, tone: 'yellow' }
+    ]) + '<div class="module-map">' + cards + '</div>';
+  }
+
+  function renderDemoJourney() {
+    var flows = [
+      { name: 'Khách đặt phòng đến checkout', steps: ['BK xác nhận', 'OP check-in', 'POS charge phòng', 'FM ghi doanh thu', 'HK dọn phòng'], link: '#hub/workcenter' },
+      { name: 'SLA khiếu nại phòng', steps: ['Lễ tân nhận yêu cầu', 'Phân công kỹ thuật', 'Theo dõi SLA', 'Hoàn tất/audit'], link: '#op/requests' },
+      { name: 'Mua hàng và kiểm soát chi', steps: ['VT cảnh báo tồn', 'Kho lập đề xuất', 'FM lập phiếu chi', 'KTT/TGĐ duyệt'], link: '#fm/expenses' },
+      { name: 'Nhân sự theo scope', steps: ['HR lập ca', 'NV self-service', 'Quản lý duyệt phép', 'Kế toán khóa lương'], link: '#hr/dashboard' }
+    ];
+    return '<div class="flow-map">' + flows.map(function (flow) {
+      return '<section class="flow-card"><div class="flow-title"><h3>' + UI.esc(flow.name) + '</h3><a class="btn btn-ghost" href="' + flow.link + '">Mở</a></div><div class="flow-steps">' + flow.steps.map(function (step, index) {
+        return '<div class="flow-step"><span>' + (index + 1) + '</span><b>' + UI.esc(step) + '</b></div>';
+      }).join('') + '</div></section>';
+    }).join('') + '</div>' +
+    UI.panel('Kịch bản demo khuyến nghị', '<div class="timeline">' + DEMO_STEPS.map(function (label, index) {
+      return '<div class="slot"><b>Bước ' + (index + 1) + '</b><div>' + UI.esc(label) + '</div><span>' + UI.badge(index === state.ui.demoStep ? 'Tiếp theo' : 'Chờ', index === state.ui.demoStep ? 'teal' : 'gray') + '</span></div>';
+    }).join('') + '</div>', '<button class="btn btn-primary" data-action="run-demo-step" type="button">Chạy bước tiếp</button>');
   }
 
   function renderOP(view) {
