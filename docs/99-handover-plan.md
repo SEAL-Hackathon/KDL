@@ -11,7 +11,7 @@
 |----------|---------|-----------|
 | `KDL_Requirements_Full.csv` | Nguồn chân lý 179 FR | ✅ hoàn chỉnh |
 | `charts_html/` (org-chart + data) | Trực quan hóa cơ cấu + ánh xạ FR_MAP | ✅ hoàn chỉnh |
-| `docs/*.md` (bộ này) | 13 bản prototype/blueprint + handover | ✅ hoàn chỉnh |
+| `docs/*.md` (bộ này) | 14 bản prototype/blueprint + workflow + handover | ✅ hoàn chỉnh |
 | Codebase ứng dụng | NestJS/Next/Postgres | ⛔ **chưa bắt đầu** — là việc của các pha dưới |
 
 → Đội nhận bàn giao có đủ: đặc tả FR, cơ cấu tổ chức, mô hình phân quyền, schema phác thảo, ước lượng. Đủ để lập sprint plan và code ngay.
@@ -134,3 +134,13 @@ Pha 0  Nền tảng          ──►  Pha 1  Lát mẫu      ──►  Pha 2 
 | 08 | [Vui chơi](08-vui-choi.md) | VG (4 FR) |
 | 09 | [Nghệ thuật Dân gian](09-nghe-thuat-dan-gian.md) | NT (4 FR) |
 | 10 | [Công nghệ thông tin](10-cong-nghe-thong-tin.md) | IT (5 FR) |
+---
+
+## 9. Workflow BA & Setup Plan
+
+Doc bo sung: [11-workflow-tong-the.md](11-workflow-tong-the.md).
+
+Dung tai lieu nay truoc khi vao sprint planning. No gom 179 FR thanh 7 workflow xuyen module:
+W1 Booking -> Check-in, W2 Stay -> Checkout, W3 Room Turnover, W4 SLA/Escalation, W5 Inventory -> Expense, W6 Workforce -> Payroll, W7 Access/Audit/DR.
+
+Nguyen tac implement: chot workflow va rule voi khach truoc, sau do moi bung thanh backlog FR/module.

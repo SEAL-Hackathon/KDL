@@ -19,7 +19,7 @@
   ];
 
   var SCREENS = {
-    hub: [['workcenter','Work Center'], ['roles','Vai trò & quyền'], ['modules','Bản đồ phân hệ'], ['journey','Luồng demo']],
+    hub: [['workflows','Tổng quan workflow'], ['workcenter','Work Center'], ['roles','Vai trò & quyền'], ['modules','Bản đồ phân hệ'], ['journey','Luồng demo']],
     op: [
       ['dashboard','Dashboard vận hành'], ['workcenter','Work Center'], ['control','Trung tâm vận hành'], ['rooms','Sơ đồ phòng'], ['housekeeping','Dọn phòng & inspection'], ['pos','POS F&B'],
       ['checkin','Check-in/out'], ['requests','Yêu cầu & khiếu nại'], ['tech','Sự cố kỹ thuật'], ['security','Nhật ký an ninh'], ['reports','Báo cáo ngày']
@@ -35,7 +35,7 @@
   };
 
   var SCREEN_PREFIX = {
-    hub: { workcenter: [], roles: [], modules: [], journey: [] },
+    hub: { workflows: [], workcenter: [], roles: [], modules: [], journey: [] },
     op: {
       dashboard: ['OP'], workcenter: ['OP'], control: ['OP'], rooms: ['OP-ROOM'], housekeeping: ['OP-ROOM'], pos: ['OP-FNB'],
       checkin: ['OP-CHK'], requests: ['OP-SVC'], tech: ['OP-TECH'], security: ['OP-SEC'], reports: ['OP-RPT']
@@ -757,11 +757,151 @@
 
   function renderHUB(view) {
     var body = '';
+    if (view === 'workflows') body = renderWorkflowOverview();
     if (view === 'workcenter') body = renderWorkCenter();
     if (view === 'roles') body = renderRoleConsole();
     if (view === 'modules') body = renderModuleMap();
     if (view === 'journey') body = renderDemoJourney();
     return page('hub', view, body, 'Lớp điều phối hi-fi: nhìn nhanh hàng đợi, role, quyền, phân hệ và luồng nghiệp vụ end-to-end của toàn khu.');
+  }
+
+  function workflowCatalog() {
+    return [
+      {
+        id: 'W1',
+        title: 'Bán dịch vụ → Đặt chỗ → Check-in',
+        group: 'Bán & đón khách',
+        modules: ['BK','OP','FM'],
+        objective: 'Biến nhu cầu của khách thành booking hợp lệ, giữ chỗ/phòng và tạo dữ liệu doanh thu để đối soát.',
+        output: 'Booking confirmed, payment/deposit, QR check-in, room assigned.',
+        steps: ['Khách xem dịch vụ', 'Kiểm tra availability và lock tạm', 'Nhập thông tin/voucher', 'Thanh toán hoặc pay-at-resort', 'Gửi QR', 'Lễ tân check-in', 'Đẩy dữ liệu sang FM'],
+        decisions: ['Lock phòng/slot bao lâu?', 'Pay-at-resort có cần duyệt?', 'No-show tính phí thế nào?', 'Booking đã check-in còn sửa gì được?'],
+        fr: ['BK-AUTH','BK-CAT','BK-ORD','BK-PAY','BK-BOOK','BK-ADM','OP-CHK','OP-ROOM','FM-REV'],
+        link: '#bk/orders',
+        tone: 'blue'
+      },
+      {
+        id: 'W2',
+        title: 'Lưu trú → Dịch vụ phát sinh → Checkout',
+        group: 'Phục vụ & thu tiền',
+        modules: ['OP','FM','SP','VG','NT'],
+        objective: 'Gom toàn bộ chi phí phát sinh trong thời gian khách lưu trú/sử dụng dịch vụ vào một quy trình thanh toán rõ ràng.',
+        output: 'Hóa đơn tổng, doanh thu ghi nhận, phòng chuyển cần dọn.',
+        steps: ['Khách đang lưu trú', 'POS/dịch vụ ghi order', 'Chọn trả tại chỗ hoặc charge-to-room', 'Treo chi phí vào hồ sơ lưu trú', 'Checkout gom phí', 'Kiểm tra blocker', 'Ghi doanh thu và chuyển phòng cần dọn'],
+        decisions: ['Dịch vụ nào được charge-to-room?', 'Ai được override checkout blocker?', 'VAT xuất theo booking hay từng dịch vụ?', 'Doanh thu ghi nhận lúc nào?'],
+        fr: ['OP-FNB','OP-CHK','SP-BOOK','VG-OPS','NT-SCH','FM-REV','FM-TAX','VT-EXP'],
+        link: '#op/checkin',
+        tone: 'green'
+      },
+      {
+        id: 'W3',
+        title: 'Buồng phòng → Trạng thái phòng → Bán lại',
+        group: 'Quay vòng phòng',
+        modules: ['OP','HR','BK'],
+        objective: 'Rút ngắn thời gian từ checkout đến phòng sẵn sàng bán lại, có kiểm tra chất lượng và audit.',
+        output: 'Room status Trống sạch, task audit, availability cập nhật.',
+        steps: ['Checkout tạo task dọn', 'Phòng về trạng thái cần dọn', 'Tổ trưởng phân công', 'Nhân viên dọn và gửi ảnh', 'Kiểm phòng đạt/không đạt', 'Đạt thì chuyển trống sạch', 'BK có thể bán lại'],
+        decisions: ['Ai được chuyển phòng sang trống sạch?', 'Có bắt buộc ảnh sau dọn?', 'Không đạt escalation cho ai?', 'BK/OP đồng bộ một chiều hay hai chiều?'],
+        fr: ['OP-ROOM','OP-CHK','HR-ATT','BK-ADM'],
+        link: '#op/housekeeping',
+        tone: 'teal'
+      },
+      {
+        id: 'W4',
+        title: 'Yêu cầu/Khiếu nại/Sự cố → SLA',
+        group: 'Chất lượng dịch vụ',
+        modules: ['OP','VT','IT'],
+        objective: 'Bảo đảm mọi yêu cầu hoặc sự cố có người chịu trách nhiệm, SLA, escalation và bằng chứng xử lý.',
+        output: 'Ticket hoàn tất, SLA log, escalation log.',
+        steps: ['Tiếp nhận yêu cầu/sự cố', 'Phân loại', 'Gán mức ưu tiên và SLA', 'Phân công xử lý', 'Cập nhật tiến độ/bằng chứng', 'Escalate nếu trễ/nghiêm trọng', 'Đóng ticket và báo cáo'],
+        decisions: ['SLA từng loại là bao lâu?', 'Cấp nào báo quản lý/TGĐ?', 'Khiếu nại có bù trừ/hoàn tiền không?', 'Ticket đóng có cần khách xác nhận?'],
+        fr: ['OP-SVC','OP-TECH','OP-SEC','VT-MNT','IT-HLP','OP-RPT'],
+        link: '#op/requests',
+        tone: 'red'
+      },
+      {
+        id: 'W5',
+        title: 'Tồn kho/Bảo trì → Đề xuất → Duyệt chi',
+        group: 'Kiểm soát chi phí',
+        modules: ['VT','FM','OP'],
+        objective: 'Kiểm soát mua sắm, xuất kho, bảo trì và chi phí bằng maker-checker rõ ràng.',
+        output: 'Phiếu nhập/xuất/bảo trì, phiếu chi, stock ledger.',
+        steps: ['Cảnh báo tồn hoặc tài sản cần sửa', 'Tạo đề xuất', 'Lấy báo giá/NCC', 'FM tạo phiếu chi/PO', 'Duyệt theo ngưỡng', 'Nhập/xuất/sửa hoàn tất', 'Chi phí vào P&L'],
+        decisions: ['Định mức tồn theo ca/ngày/tháng?', 'Ngưỡng KTT/TGĐ là bao nhiêu?', 'Thu kho có được tự duyệt không?', 'F&B trừ kho theo order hay theo ca?'],
+        fr: ['VT-CAT','VT-IMP','VT-EXP','VT-STK','VT-MNT','VT-PRO','FM-BUD','FM-EXP','FM-ACC'],
+        link: '#vt/stock',
+        tone: 'yellow'
+      },
+      {
+        id: 'W6',
+        title: 'Nhân sự/CTV → Ca làm → Lương/Thù lao',
+        group: 'Nguồn lực',
+        modules: ['HR','FM','NT','IT'],
+        objective: 'Quản lý nhân viên, CTV, nghệ nhân, ca làm, chấm công, lương, thuế và vòng đời quyền truy cập.',
+        output: 'Payroll, payslip, CTV payout, tax records.',
+        steps: ['Tạo hồ sơ/hợp đồng', 'Xếp ca', 'Chấm công/nghỉ phép', 'Duyệt sửa công/phép', 'Tính lương/thù lao', 'KTT duyệt kỳ lương', 'Phát phiếu và ghi thuế'],
+        decisions: ['NV chỉ xem dữ liệu gì của mình?', 'Ai được sửa chấm công?', 'Tăng ca/ngày lễ tính thế nào?', 'CTV tính tiền theo buổi hay hợp đồng?'],
+        fr: ['HR-EMP','HR-ATT','HR-LEA','HR-SAL','HR-CTV','NT-CON','FM-TAX','IT-SEC'],
+        link: '#hr/dashboard',
+        tone: 'purple'
+      },
+      {
+        id: 'W7',
+        title: 'Phân quyền → Audit → Uptime/Backup',
+        group: 'Nền kiểm soát',
+        modules: ['IT','CORE','ALL'],
+        objective: 'Đảm bảo đúng người, đúng quyền, truy vết được thao tác và duy trì hệ thống 24/7.',
+        output: 'Role/permission, audit log, uptime/backup evidence.',
+        steps: ['Tạo user theo vị trí', 'Seed quyền từ FR_MAP', 'PoliciesGuard kiểm tra quyền', 'Ghi audit mọi thao tác', 'Theo dõi uptime/helpdesk', 'Backup và test restore', 'Review quyền định kỳ'],
+        decisions: ['Role đặc biệt nào ngoài org-chart?', '2FA bắt buộc cho ai?', 'Audit log lưu bao lâu?', 'RPO/RTO cho PMS/POS/BK là bao nhiêu?'],
+        fr: ['IT-INF','IT-HLP','IT-SEC','IT-BAK','HR-EMP-05','CORE-RBAC','CORE-AUDIT'],
+        link: '#it/access',
+        tone: 'blue'
+      }
+    ];
+  }
+
+  function renderWorkflowOverview() {
+    var flows = workflowCatalog();
+    var allModules = Array.from(new Set(flows.reduce(function (acc, flow) { return acc.concat(flow.modules); }, [])));
+    var body = '<section class="workflow-hero"><div><div class="eyebrow">BA workflow map</div><h2>7 workflow xương sống cho 179 FR</h2><p>Khách hàng không cần duyệt từng chức năng rời rạc. BA dùng màn này để chốt luồng nghiệp vụ, rule, điểm duyệt và ngoại lệ trước khi bung thành backlog implement.</p></div><div class="workflow-hero-actions"><a class="btn btn-primary" href="#hub/workcenter">Mở Work Center</a><a class="btn btn-ghost" href="#hub/modules">Bản đồ phân hệ</a><a class="btn btn-ghost" href="#hub/roles">Vai trò & quyền</a></div></section>';
+    body += UI.kpi([
+      { label: 'Workflow chính', value: flows.length, note: 'gom toàn bộ vận hành', tone: 'blue' },
+      { label: 'FR được gom', value: Object.keys(SOURCE.reqs || {}).length || 179, note: 'không demo theo từng dòng', tone: 'green' },
+      { label: 'Module tham gia', value: allModules.length, note: allModules.join(', '), tone: 'teal' },
+      { label: 'Câu hỏi BA', value: flows.reduce(function (sum, flow) { return sum + flow.decisions.length; }, 0), note: 'cần chốt với khách', tone: 'yellow' }
+    ]);
+    body += '<div class="workflow-grid">' + flows.map(function (flow) {
+      return '<section class="workflow-card workflow-' + UI.esc(flow.tone) + '">' +
+        '<div class="workflow-card-head"><span>' + UI.esc(flow.id) + '</span>' + UI.badge(flow.group, flow.tone === 'purple' ? 'purple' : flow.tone) + '</div>' +
+        '<h3>' + UI.esc(flow.title) + '</h3>' +
+        '<p>' + UI.esc(flow.objective) + '</p>' +
+        '<div class="workflow-modules">' + flow.modules.map(function (m) { return '<span>' + UI.esc(m) + '</span>'; }).join('') + '</div>' +
+        '<div class="workflow-output"><b>Output</b><br>' + UI.esc(flow.output) + '</div>' +
+        '<div class="workflow-actions"><button class="btn btn-primary" data-action="open-workflow-detail" data-id="' + flow.id + '" type="button">Chi tiết BA</button><a class="btn btn-ghost" href="' + flow.link + '">Mở module</a></div>' +
+      '</section>';
+    }).join('') + '</div>';
+    body += UI.panel('Cách dùng trong workshop', '<div class="timeline">' +
+      '<div class="slot"><b>1</b><div>Chạy W1 → W2 → W3 để khách thấy dòng tiền, checkout và quay vòng phòng.</div><span>' + UI.badge('Core', 'blue') + '</span></div>' +
+      '<div class="slot"><b>2</b><div>Chạy W4 → W5 → W6 để chốt kiểm soát nội bộ: SLA, chi phí, nhân sự.</div><span>' + UI.badge('Control', 'yellow') + '</span></div>' +
+      '<div class="slot"><b>3</b><div>Chạy W7 để chốt phân quyền, audit, uptime và backup trước khi implement thật.</div><span>' + UI.badge('Foundation', 'teal') + '</span></div>' +
+    '</div>');
+    return body;
+  }
+
+  function openWorkflowModal(id) {
+    var flow = workflowCatalog().find(function (item) { return item.id === id; });
+    if (!flow) return;
+    var body = '<div class="workflow-detail-head"><div>' + flow.modules.map(function (m) { return '<span>' + UI.esc(m) + '</span>'; }).join('') + '</div><p>' + UI.esc(flow.objective) + '</p></div>' +
+      '<div class="grid-2">' +
+      UI.panel('Bước chính', '<div class="flow-steps">' + flow.steps.map(function (step, index) {
+        return '<div class="flow-step"><span>' + (index + 1) + '</span><b>' + UI.esc(step) + '</b></div>';
+      }).join('') + '</div>') +
+      UI.panel('Điểm BA cần chốt', '<div class="decision-list">' + flow.decisions.map(function (d) { return '<div>' + UI.esc(d) + '</div>'; }).join('') + '</div>') +
+      UI.panel('FR liên quan', '<div class="fr-chip-row">' + flow.fr.map(function (fr) { return '<span>' + UI.esc(fr) + '</span>'; }).join('') + '</div>') +
+      UI.panel('Output nghiệm thu', '<div class="note">' + UI.esc(flow.output) + '</div>') +
+      '</div>';
+    UI.modal(flow.id + ' · ' + flow.title, body, '<a class="btn btn-ghost" href="' + flow.link + '" data-close-modal>Mở module</a><button class="btn btn-primary" data-close-modal type="button">Đóng</button>');
   }
 
   function roleHasPrefixFor(r, prefix) {
@@ -1609,6 +1749,9 @@
         render();
         UI.toast('Đã chuyển sang vai trò: ' + nextRole.label, 'success');
       }
+    }
+    if (action === 'open-workflow-detail') {
+      openWorkflowModal(actionEl.dataset.id);
     }
     if (action === 'open-order') openOrderModal();
     if (action === 'submit-order') {
