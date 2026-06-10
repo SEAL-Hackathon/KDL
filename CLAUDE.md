@@ -162,6 +162,14 @@ Cấu trúc chính:
 - `prototype/data/_bridge.js`: bridge đọc lại `charts_html/data/org-data.js`, `reqs-data.js`, `mapping-data.js` để dùng `TO_DATA`, `REQS_DATA`, `FR_MAP`, `SCHEMA_DATA` thật.
 - `prototype/data/mock-*.js`: dữ liệu vận hành giả cho phòng, POS, booking, nhân sự, tài chính, vật tư, spa, vui chơi, nghệ thuật Ví Dặm, IT.
 
-Các tương tác demo hiện có: đổi trạng thái phòng, thêm order F&B, check-in khách và cập nhật phòng, lập/duyệt phiếu chi theo SoD. Bộ chọn vai trò lọc menu client-side theo `FR_MAP`/module được cấp và minh họa `scope own` cho nghệ nhân/nhân viên.
+Các tương tác demo hiện có: đổi trạng thái phòng, lọc phòng theo tầng/trạng thái, thêm order F&B, chuyển vòng đời order POS, check-in khách, check-out gom tiền phòng/F&B/minibar, ghi doanh thu FM, tự tạo việc dọn phòng, lập/duyệt phiếu chi theo SoD. Bộ chọn vai trò lọc menu client-side theo `FR_MAP`/module được cấp và minh họa `scope own` cho nghệ nhân/nhân viên.
+
+Prototype có thể xuất/nhập state JSON từ topbar để lưu kịch bản demo. Mọi thao tác chính ghi `audit` trong localStorage và xem được tại module CNTT → `Audit log`.
+
+Các nâng cấp vận hành mock cần giữ khi sửa tiếp: check-out mở hóa đơn tổng trước khi xác nhận; chặn check-out nếu còn order F&B chưa sẵn sàng; order charge-to-room dừng ở `Chờ check-out` và chỉ được tính tiền khi checkout phòng; housekeeping có lifecycle `Chờ dọn → Đang dọn → Chờ kiểm → Đạt/Không đạt`; yêu cầu khách dùng SLA tính theo `openedAt`; CNTT có `Health check` để phát hiện state bất thường.
+
+Topbar có bộ chọn kịch bản demo (`Ngày thường`, `Cuối tuần đông khách`, `Sự cố vận hành`, `Duyệt chi cao điểm`) để reset state theo tình huống UAT. Module OP có màn `Trung tâm vận hành` gom booking chờ check-in, checkout sẵn sàng/bị chặn, POS, SLA và buồng phòng. POS có phiếu bếp giả lập; modal checkout có nút in hóa đơn.
+
+Nút `Bước demo` trên topbar và trong `Trung tâm vận hành` chạy tuần tự một demo script: booking → check-in, POS, checkout, housekeeping, SLA, health check. Module CNTT có màn `Nguồn FR/Schema` để tra trực tiếp `REQS_DATA`, `FR_MAP`, `SCHEMA_DATA` theo module.
 
 Khi sửa prototype: chỉ chỉnh trong `prototype/` trừ khi cập nhật tài liệu hướng dẫn này. Không chạm `charts_html/`, `docs/`, CSV; các file đó chỉ được nạp lại làm dữ liệu nguồn.

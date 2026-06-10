@@ -19,7 +19,7 @@
 
   var SCREENS = {
     op: [
-      ['dashboard','Dashboard vận hành'], ['rooms','Sơ đồ phòng'], ['housekeeping','Dọn phòng & inspection'], ['pos','POS F&B'],
+      ['dashboard','Dashboard vận hành'], ['control','Trung tâm vận hành'], ['rooms','Sơ đồ phòng'], ['housekeeping','Dọn phòng & inspection'], ['pos','POS F&B'],
       ['checkin','Check-in/out'], ['requests','Yêu cầu & khiếu nại'], ['tech','Sự cố kỹ thuật'], ['security','Nhật ký an ninh'], ['reports','Báo cáo ngày']
     ],
     bk: [['public','Web booking khách'], ['admin','Dashboard booking'], ['orders','Danh sách đơn'], ['cms','CMS dịch vụ'], ['vouchers','Voucher'], ['reports','Báo cáo']],
@@ -29,7 +29,7 @@
     sp: [['timeline','Lịch Spa'], ['rooms','Phòng trị liệu'], ['checkin','Check-in KTV'], ['services','Dịch vụ & giá'], ['cards','Thẻ trả trước'], ['reports','Báo cáo']],
     vg: [['scan','Quét vé'], ['checklist','Checklist an toàn'], ['incidents','Báo cáo sự cố'], ['reports','Báo cáo']],
     nt: [['schedule','Lịch biểu diễn'], ['assign','Phân công nghệ nhân'], ['contracts','Hợp đồng & thù lao'], ['reports','Báo cáo']],
-    it: [['assets','Inventory IT'], ['uptime','Dashboard uptime'], ['helpdesk','Helpdesk'], ['access','Quản lý truy cập'], ['backup','Backup/DR']]
+    it: [['assets','Inventory IT'], ['uptime','Dashboard uptime'], ['helpdesk','Helpdesk'], ['access','Quản lý truy cập'], ['backup','Backup/DR'], ['audit','Audit log'], ['health','Health check'], ['source','Nguồn FR/Schema']]
   };
 
   var ROLES = [
@@ -44,6 +44,16 @@
     { id: 'tgd', label: 'TGĐ', modules: ['OP','BK','HR','FM','VT','SP','VG','NT','IT'], scope: 'all', canApproveExpense: true }
   ];
 
+  var DEMO_STEPS = [
+    'Đẩy một booking phòng sang check-in',
+    'Chuyển một order POS sang bước tiếp theo',
+    'Hoàn tất order tại bàn hoặc đưa charge-to-room về Chờ check-out',
+    'Checkout một phòng đủ điều kiện và ghi doanh thu',
+    'Chuyển một việc buồng phòng sang bước tiếp theo',
+    'Xử lý một yêu cầu/SLA đang mở',
+    'Mở Health check để rà state'
+  ];
+
   var state = loadState();
   var currentRoleId = localStorage.getItem(ROLE_KEY) || 'admin';
   var moduleFilter = localStorage.getItem(MODULE_FILTER_KEY) || 'all';
@@ -55,7 +65,9 @@
       hr: clone(window.MOCK_HR),
       fm: clone(window.MOCK_FM),
       vt: clone(window.MOCK_VT),
-      misc: clone(window.MOCK_MISC)
+      misc: clone(window.MOCK_MISC),
+      ui: { roomStatus: 'all', roomFloor: 'all', demoStep: 0, sourceModule: 'OP' },
+      audit: []
     };
   }
 
@@ -66,14 +78,217 @@
   function loadState() {
     try {
       var saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
-      return saved || defaults();
+      return normalizeState(saved || defaults());
     } catch (err) {
-      return defaults();
+      return normalizeState(defaults());
     }
   }
 
   function saveState() {
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  }
+
+  function normalizeState(data) {
+    var base = defaults();
+    data.op = data.op || base.op;
+    data.bk = data.bk || base.bk;
+    data.hr = data.hr || base.hr;
+    data.fm = data.fm || base.fm;
+    data.vt = data.vt || base.vt;
+    data.misc = data.misc || base.misc;
+    data.ui = data.ui || {};
+    data.ui.roomStatus = data.ui.roomStatus || 'all';
+    data.ui.roomFloor = data.ui.roomFloor || 'all';
+    data.ui.demoStep = data.ui.demoStep || 0;
+    data.ui.sourceModule = data.ui.sourceModule || 'OP';
+    data.audit = data.audit || [];
+    data.op.orders = data.op.orders || [];
+    data.op.checkouts = data.op.checkouts || [];
+    data.op.housekeeping = data.op.housekeeping || [];
+    data.op.requests = data.op.requests || [];
+    data.op.requests.forEach(function (request) {
+      request.dueMin = request.dueMin || (request.type === 'Khiếu nại' ? 30 : 15);
+      if (!request.openedAt) {
+        request.openedAt = new Date(Date.now() - Math.max(0, request.dueMin - (request.sla || request.dueMin)) * 60000).toISOString();
+      }
+    });
+    data.fm.revenues = data.fm.revenues || [];
+    data.vt.exports = data.vt.exports || [];
+    return data;
+  }
+
+  function audit(action, detail, before, after) {
+    state.audit.unshift({
+      at: new Date().toISOString(),
+      role: role().label,
+      action: action,
+      detail: detail,
+      before: before ? JSON.stringify(before).slice(0, 180) : '',
+      after: after ? JSON.stringify(after).slice(0, 180) : ''
+    });
+    state.audit = state.audit.slice(0, 150);
+  }
+
+  function persist(message, tone) {
+    saveState();
+    render();
+    if (message) UI.toast(message, tone || 'success');
+  }
+
+  function todayText() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function buildScenario(name) {
+    var data = normalizeState(defaults());
+    data.audit = [];
+    if (name === 'weekend') {
+      data.op.rooms.forEach(function (room, index) {
+        if (index < 30) {
+          room.status = 'Có khách';
+          room.guest = ['Nguyễn Lan Anh', 'Trần Minh Đức', 'Phan Minh Châu', 'Bùi Khánh Linh'][index % 4];
+        } else if (index < 36) {
+          room.status = 'Cần dọn';
+          room.guest = '';
+        }
+      });
+      data.op.orders.unshift(
+        { id: 'OD-WE-01', table: 'B03', guest: 'Phòng P101', items: ['Cháo hàu Lộc Hà', 'Cu đơ Hà Tĩnh'], total: 130000, status: 'Chờ check-out', chargeToRoom: true },
+        { id: 'OD-WE-02', table: 'B08', guest: 'Walk-in', items: ['Ram bánh mướt'], total: 65000, status: 'Chờ thanh toán', chargeToRoom: false }
+      );
+      data.op.checkins.unshift(
+        { id: 'CI-WE-01', guest: 'Nguyễn Lan Anh', booking: 'BK-240610-001', room: 'P101', cccd: 'QR từ booking', card: 'Đã giao thẻ', status: 'Đang lưu trú' },
+        { id: 'CI-WE-02', guest: 'Trần Minh Đức', booking: 'BK-240609-009', room: 'P102', cccd: 'QR từ booking', card: 'Đã giao thẻ', status: 'Đang lưu trú' }
+      );
+      data.op.housekeeping.unshift({ room: 'P301', staff: 'Chưa phân công', shift: 'Sáng 06-14', inspection: 'Chờ dọn', photo: 'Chưa có ảnh' });
+      data.fm.revenues.unshift({ source: 'Booking online cuối tuần', amount: 186000000, date: todayText(), status: 'Chờ đối soát' });
+    }
+    if (name === 'incident') {
+      data.op.requests.unshift(
+        { id: 'SLA-CRIT', room: 'P208', type: 'Khiếu nại', desc: 'Khách báo mất điện cục bộ', assigned: 'Kỹ thuật điện', dueMin: 10, openedAt: new Date(Date.now() - 28 * 60000).toISOString(), status: 'Escalate P1' }
+      );
+      data.op.techTickets.unshift({ id: 'KT-P1', location: 'P208', issue: 'Mất điện cục bộ', priority: 'P1', before: 'Ảnh tủ điện giả', after: 'Chưa có', status: 'Đang sửa', cost: 0 });
+      var room = data.op.rooms.find(function (r) { return r.id === 'P208'; });
+      if (room) room.status = 'Bảo trì';
+      data.misc.vg.checklists[1].status = 'Tạm dừng';
+      data.misc.it.services[3].status = 'Cảnh báo';
+      data.misc.it.tickets.unshift({ id: 'HD-P1', reporter: 'Lễ tân', priority: 'Khẩn', desc: 'Mạng POS chập chờn sau sự cố điện', sla: '30 phút', status: 'Đã phân công' });
+    }
+    if (name === 'finance') {
+      data.fm.expenses.unshift(
+        { id: 'PC-HI-01', maker: 'Thủ quỹ Hương', dept: 'Kỹ thuật', category: 'Sửa hệ thống điện khu Bungalow', amount: 36800000, status: 'Chờ TGĐ duyệt', level: 'TGĐ', invoice: 'HD-KT-P1' },
+        { id: 'PC-HI-02', maker: 'Kế toán chi phí', dept: 'F&B', category: 'Nhập hải sản cuối tuần', amount: 9600000, status: 'Chờ KTT duyệt', level: 'KTT', invoice: 'HD-HS-09' }
+      );
+      data.vt.stock.forEach(function (stock) {
+        if (stock.code === 'VT-HAU') {
+          stock.onhand = 6;
+          stock.status = 'Dưới tối thiểu';
+        }
+      });
+      data.fm.cash[1].checker = 'Chờ người kiểm thứ 2';
+    }
+    return data;
+  }
+
+  function runDemoStep() {
+    var step = state.ui.demoStep % DEMO_STEPS.length;
+    var message = '';
+    if (step === 0) {
+      var booking = state.bk.bookings.find(function (b) {
+        return ['Đã xác nhận', 'Chờ xác nhận'].indexOf(b.status) >= 0 && b.item.indexOf('Phòng') >= 0;
+      });
+      var room = state.op.rooms.find(function (r) { return r.status === 'Trống sạch' || r.status === 'Đặt trước'; });
+      if (booking && room) {
+        var beforeBooking = clone(booking);
+        booking.status = 'Check-in';
+        room.status = 'Có khách';
+        room.guest = booking.guest;
+        var checkin = { id: 'CI-DEMO-' + (state.op.checkins.length + 1), guest: booking.guest, booking: booking.id, room: room.id, cccd: 'QR demo script', card: 'Đã giao thẻ', status: 'Đang lưu trú' };
+        state.op.checkins.unshift(checkin);
+        audit('DEMO_BOOKING_TO_CHECKIN', 'Demo step: ' + DEMO_STEPS[step], beforeBooking, checkin);
+        message = 'Demo: đã đẩy booking ' + booking.id + ' vào phòng ' + room.id;
+      } else {
+        message = 'Demo: không có booking/phòng phù hợp, bỏ qua bước.';
+      }
+    }
+    if (step === 1 || step === 2) {
+      var order = state.op.orders.find(function (o) {
+        var finalStatus = o.chargeToRoom ? 'Chờ check-out' : 'Đã thanh toán';
+        return o.status !== finalStatus;
+      });
+      if (order) {
+        var beforeOrder = clone(order);
+        order.status = nextOrderStatus(order);
+        if (order.status === 'Đã thanh toán') {
+          addRevenue('POS F&B ' + order.id, order.total, 'Chờ đối soát cuối ca');
+          deductStockForOrder(order);
+        }
+        syncTableStatus(order.table);
+        audit('DEMO_POS_ADVANCE', 'Demo step: ' + DEMO_STEPS[step], beforeOrder, order);
+        message = 'Demo: order ' + order.id + ' chuyển sang ' + order.status;
+      } else {
+        message = 'Demo: không có order POS cần xử lý.';
+      }
+    }
+    if (step === 3) {
+      var ready = state.op.checkins.find(function (ci) { return ci.status === 'Đang lưu trú' && !checkoutBlockers(ci).length; });
+      if (ready) {
+        var beforeCi = clone(ready);
+        var total = checkoutAmount(ready);
+        ready.status = 'Đã check-out';
+        ready.checkoutTotal = total;
+        state.op.checkouts.unshift({ id: 'CO-DEMO-' + (state.op.checkouts.length + 1), checkin: ready.id, guest: ready.guest, room: ready.room, total: total, at: new Date().toISOString() });
+        var checkoutRoom = state.op.rooms.find(function (r) { return r.id === ready.room; });
+        if (checkoutRoom) { checkoutRoom.status = 'Cần dọn'; checkoutRoom.guest = ''; }
+        roomChargeOrders(ready.room).forEach(function (o) { o.status = 'Đã tính tiền'; syncTableStatus(o.table); deductStockForOrder(o); });
+        var bk = bookingForCheckin(ready);
+        if (bk) bk.status = 'Completed';
+        addRevenue('Check-out phòng ' + ready.room, total, 'Chờ đối soát cuối ngày');
+        addHousekeepingTask(ready.room);
+        audit('DEMO_CHECKOUT', 'Demo step: ' + DEMO_STEPS[step], beforeCi, ready);
+        message = 'Demo: đã checkout phòng ' + ready.room + ' và ghi doanh thu.';
+      } else {
+        message = 'Demo: chưa có phòng đủ điều kiện checkout.';
+      }
+    }
+    if (step === 4) {
+      var task = state.op.housekeeping.find(function (item) { return item.inspection !== 'Đạt'; });
+      if (task) {
+        var beforeTask = clone(task);
+        task.inspection = nextHousekeepingStatus(task.inspection);
+        if (task.inspection === 'Đang dọn' && task.staff === 'Chưa phân công') task.staff = 'Tổ buồng phòng';
+        if (task.inspection === 'Đạt') {
+          task.photo = 'Ảnh sau dọn đã nhận';
+          var clean = state.op.rooms.find(function (r) { return r.id === task.room; });
+          if (clean) clean.status = 'Trống sạch';
+        }
+        audit('DEMO_HOUSEKEEPING', 'Demo step: ' + DEMO_STEPS[step], beforeTask, task);
+        message = 'Demo: buồng phòng ' + task.room + ' chuyển sang ' + task.inspection;
+      } else {
+        message = 'Demo: không còn việc buồng phòng mở.';
+      }
+    }
+    if (step === 5) {
+      var req = state.op.requests.find(function (item) { return item.status !== 'Hoàn tất'; });
+      if (req) {
+        var beforeReq = clone(req);
+        req.status = nextRequestStatus(req.status);
+        if (req.status === 'Hoàn tất') req.completedAt = new Date().toISOString();
+        audit('DEMO_REQUEST', 'Demo step: ' + DEMO_STEPS[step], beforeReq, req);
+        message = 'Demo: yêu cầu ' + req.id + ' chuyển sang ' + req.status;
+      } else {
+        message = 'Demo: không có yêu cầu đang mở.';
+      }
+    }
+    if (step === 6) {
+      location.hash = 'it/health';
+      message = 'Demo: mở Health check để rà dữ liệu.';
+    } else {
+      location.hash = 'op/control';
+    }
+    state.ui.demoStep = (step + 1) % DEMO_STEPS.length;
+    audit('DEMO_STEP_RUN', 'Hoàn tất bước demo ' + (step + 1) + ': ' + DEMO_STEPS[step]);
+    persist(message, 'success');
   }
 
   function role() {
@@ -148,9 +363,58 @@
 
     document.getElementById('btn-reset').onclick = function () {
       localStorage.removeItem(STORE_KEY);
-      state = defaults();
+      state = normalizeState(defaults());
       render();
       UI.toast('Đã đặt lại dữ liệu mock cục bộ', 'success');
+    };
+
+    document.getElementById('btn-scenario').onclick = function () {
+      var selected = document.getElementById('scenario-select').value;
+      state = buildScenario(selected);
+      audit('SCENARIO_LOAD', 'Nạp kịch bản demo: ' + selected);
+      saveState();
+      location.hash = selected === 'finance' ? 'fm/expenses' : 'op/control';
+      render();
+      UI.toast('Đã nạp kịch bản demo', 'success');
+    };
+
+    document.getElementById('btn-demo-step').onclick = function () {
+      runDemoStep();
+    };
+
+    document.getElementById('btn-export').onclick = function () {
+      audit('EXPORT_STATE', 'Xuất dữ liệu mock ra JSON');
+      saveState();
+      var blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+      var link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'kdl-prototype-state.json';
+      link.click();
+      URL.revokeObjectURL(link.href);
+      UI.toast('Đã xuất dữ liệu mock JSON', 'success');
+    };
+
+    document.getElementById('btn-import').onclick = function () {
+      document.getElementById('import-file').click();
+    };
+
+    document.getElementById('import-file').onchange = function (event) {
+      var file = event.target.files && event.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        try {
+          state = normalizeState(JSON.parse(reader.result));
+          audit('IMPORT_STATE', 'Nhập dữ liệu mock từ JSON');
+          saveState();
+          render();
+          UI.toast('Đã nhập dữ liệu mock', 'success');
+        } catch (err) {
+          UI.toast('File JSON không hợp lệ', 'error');
+        }
+        event.target.value = '';
+      };
+      reader.readAsText(file, 'utf-8');
     };
   }
 
@@ -194,6 +458,110 @@
     }).join('') + '</div>');
   }
 
+  function bookingForCheckin(checkin) {
+    return state.bk.bookings.find(function (b) { return b.id === checkin.booking; });
+  }
+
+  function roomMiniBar(roomNo) {
+    var room = state.op.rooms.find(function (r) { return r.id === roomNo; });
+    return room ? (room.minibar || 0) : 0;
+  }
+
+  function roomChargeOrders(roomNo) {
+    return state.op.orders.filter(function (o) {
+      return o.chargeToRoom && o.guest === 'Phòng ' + roomNo && o.status !== 'Đã tính tiền';
+    });
+  }
+
+  function checkoutAmount(checkin) {
+    return checkoutBreakdown(checkin).total;
+  }
+
+  function checkoutBreakdown(checkin) {
+    var booking = bookingForCheckin(checkin);
+    var roomAmount = booking ? booking.total : 1850000;
+    var fnb = roomChargeOrders(checkin.room).reduce(function (sum, order) { return sum + order.total; }, 0);
+    var minibar = roomMiniBar(checkin.room);
+    var subtotal = roomAmount + fnb + minibar;
+    var vat = Math.round(subtotal * 0.1);
+    return { room: roomAmount, fnb: fnb, minibar: minibar, subtotal: subtotal, vat: vat, total: subtotal + vat };
+  }
+
+  function checkoutBlockers(checkin) {
+    var blockers = [];
+    var pendingOrders = roomChargeOrders(checkin.room).filter(function (order) {
+      return ['Đang bếp', 'Đã phục vụ'].indexOf(order.status) >= 0;
+    });
+    if (pendingOrders.length) blockers.push('Còn ' + pendingOrders.length + ' order F&B chưa chuyển sang Chờ check-out.');
+    var room = state.op.rooms.find(function (r) { return r.id === checkin.room; });
+    if (!room || room.status !== 'Có khách') blockers.push('Phòng không còn ở trạng thái Có khách.');
+    return blockers;
+  }
+
+  function slaInfo(request) {
+    var elapsed = Math.floor((Date.now() - new Date(request.openedAt).getTime()) / 60000);
+    var remain = (request.dueMin || 30) - elapsed;
+    return {
+      elapsed: Math.max(0, elapsed),
+      remain: remain,
+      text: remain >= 0 ? 'Còn ' + remain + ' phút' : 'Trễ ' + Math.abs(remain) + ' phút',
+      tone: remain < 0 ? 'red' : (remain <= 10 ? 'yellow' : 'green')
+    };
+  }
+
+  function nextHousekeepingStatus(status) {
+    var flow = ['Chờ dọn', 'Đang dọn', 'Chờ kiểm', 'Đạt'];
+    var normalized = status === 'Không đạt' ? 'Đang dọn' : status;
+    var index = flow.indexOf(normalized);
+    return flow[Math.min(index + 1, flow.length - 1)] || 'Đang dọn';
+  }
+
+  function nextRequestStatus(status) {
+    if (status === 'Hoàn tất') return 'Hoàn tất';
+    if (status === 'Đang xử lý') return 'Hoàn tất';
+    return 'Đang xử lý';
+  }
+
+  function nextOrderStatus(order) {
+    var flow = ['Đang bếp', 'Đã phục vụ', 'Chờ thanh toán', 'Đã thanh toán'];
+    if (order.chargeToRoom) flow = ['Đang bếp', 'Đã phục vụ', 'Chờ check-out'];
+    var index = flow.indexOf(order.status);
+    return flow[Math.min(index + 1, flow.length - 1)] || flow[0];
+  }
+
+  function syncTableStatus(tableId) {
+    var table = state.op.tables.find(function (t) { return t.id === tableId; });
+    if (!table) return;
+    var active = state.op.orders.some(function (o) {
+      return o.table === tableId && ['Đang bếp', 'Đã phục vụ', 'Chờ thanh toán', 'Chờ check-out'].indexOf(o.status) >= 0;
+    });
+    table.status = active ? 'Đang phục vụ' : 'Trống';
+  }
+
+  function deductStockForOrder(order) {
+    order.items.forEach(function (name) {
+      var stockCode = name.indexOf('Hàu') >= 0 || name.indexOf('Gỏi cá') >= 0 ? 'VT-HAU' : (name.indexOf('Cu đơ') >= 0 ? 'VT-CUDO' : '');
+      if (!stockCode) return;
+      var stock = state.vt.stock.find(function (s) { return s.code === stockCode; });
+      if (stock) {
+        stock.onhand = Math.max(0, stock.onhand - 1);
+        stock.status = stock.onhand < stock.min ? 'Dưới tối thiểu' : (stock.onhand <= stock.min + 5 ? 'Cận mức' : 'Đủ');
+      }
+    });
+    state.vt.exports.unshift({ id: 'PX-POS-' + (state.vt.exports.length + 1), item: order.items.join(', '), dept: 'F&B', qty: order.items.length, status: 'Tự trừ theo POS' });
+  }
+
+  function addRevenue(source, amount, status) {
+    state.fm.revenues.unshift({ source: source, amount: amount, date: todayText(), status: status || 'Chờ đối soát' });
+  }
+
+  function addHousekeepingTask(roomNo) {
+    var exists = state.op.housekeeping.some(function (task) { return task.room === roomNo && task.inspection !== 'Đạt'; });
+    if (!exists) {
+      state.op.housekeeping.unshift({ room: roomNo, staff: 'Chưa phân công', shift: 'Sáng 06-14', inspection: 'Chờ dọn', photo: 'Chưa có ảnh' });
+    }
+  }
+
   function render() {
     var route = parseRoute();
     renderNav(route);
@@ -221,6 +589,8 @@
       { label: 'RevPAR hôm nay', value: '1,42tr', note: 'ADR 1,88tr', tone: 'teal' },
       { label: 'SLA đỏ/vàng', value: issues, note: 'sự cố kỹ thuật mở', tone: issues ? 'red' : 'green' }
     ]);
+    if (view === 'dashboard') body += renderWorkflowSummary();
+    if (view === 'control') body += renderOpsControl();
     if (view === 'rooms' || view === 'dashboard') body += renderRooms();
     if (view === 'housekeeping') body += renderHousekeeping();
     if (view === 'pos') body += renderPOS();
@@ -233,15 +603,89 @@
   }
 
   function renderRooms() {
-    return UI.panel('Sơ đồ buồng phòng real-time', '<div class="note">Bấm vào phòng để đổi trạng thái theo vòng Trống sạch → Có khách → Cần dọn → Bảo trì → Đặt trước.</div><br><div class="room-grid">' + state.op.rooms.map(function (r) {
+    var floors = Array.from(new Set(state.op.rooms.map(function (r) { return r.floor; }))).sort();
+    var statusOptions = ['all', 'Trống sạch', 'Có khách', 'Cần dọn', 'Bảo trì', 'Đặt trước'].map(function (s) {
+      return '<option value="' + UI.esc(s) + '"' + (state.ui.roomStatus === s ? ' selected' : '') + '>' + (s === 'all' ? 'Tất cả trạng thái' : UI.esc(s)) + '</option>';
+    }).join('');
+    var floorOptions = '<option value="all">Tất cả tầng</option>' + floors.map(function (f) {
+      return '<option value="' + f + '"' + (String(state.ui.roomFloor) === String(f) ? ' selected' : '') + '>Tầng ' + f + '</option>';
+    }).join('');
+    var filtered = state.op.rooms.filter(function (r) {
+      var okStatus = state.ui.roomStatus === 'all' || r.status === state.ui.roomStatus;
+      var okFloor = state.ui.roomFloor === 'all' || String(r.floor) === String(state.ui.roomFloor);
+      return okStatus && okFloor;
+    });
+    var filters = '<div class="form-grid"><div class="field"><label>Trạng thái</label><select data-action="set-room-status">' + statusOptions + '</select></div><div class="field"><label>Tầng</label><select data-action="set-room-floor">' + floorOptions + '</select></div></div><br>';
+    var grid = filtered.length ? '<div class="room-grid">' + filtered.map(function (r) {
       var tone = { 'Trống sạch': 'empty', 'Có khách': 'occupied', 'Cần dọn': 'clean', 'Bảo trì': 'maintenance', 'Đặt trước': 'reserved' }[r.status];
       return '<button class="room-tile" data-action="cycle-room" data-room="' + r.id + '" type="button"><div class="room-no">' + r.id + '</div><div class="room-type">' + UI.esc(r.type) + '</div><span class="room-status status-' + tone + '">' + UI.esc(r.status) + '</span><div class="fnb-seat">' + UI.esc(r.guest || r.housekeeper) + '</div></button>';
-    }).join('') + '</div>');
+    }).join('') + '</div>' : '<div class="empty">Không có phòng theo bộ lọc</div>';
+    return UI.panel('Sơ đồ buồng phòng real-time', '<div class="note">Bấm vào phòng để đổi trạng thái theo vòng Trống sạch → Có khách → Cần dọn → Bảo trì → Đặt trước.</div><br>' + filters + grid);
+  }
+
+  function renderWorkflowSummary() {
+    var activeStay = state.op.checkins.filter(function (c) { return c.status === 'Đang lưu trú'; }).length;
+    var pendingKitchen = state.op.orders.filter(function (o) { return o.status === 'Đang bếp'; }).length;
+    var pendingCheckout = state.op.orders.filter(function (o) { return o.status === 'Chờ check-out'; }).length;
+    var cleaning = state.op.housekeeping.filter(function (h) { return h.inspection !== 'Đạt'; }).length;
+    return UI.panel('Luồng vận hành liên module', '<div class="timeline">' +
+      '<div class="slot"><b>BK → OP</b><div class="progress"><span style="width:' + Math.min(100, activeStay * 18) + '%"></span></div><span>' + activeStay + ' lưu trú</span></div>' +
+      '<div class="slot"><b>POS → Bếp</b><div class="progress"><span style="width:' + Math.min(100, pendingKitchen * 28) + '%"></span></div><span>' + pendingKitchen + ' order</span></div>' +
+      '<div class="slot"><b>Charge phòng</b><div class="progress"><span style="width:' + Math.min(100, pendingCheckout * 30) + '%"></span></div><span>' + pendingCheckout + ' chờ</span></div>' +
+      '<div class="slot"><b>Checkout → HK</b><div class="progress"><span style="width:' + Math.min(100, cleaning * 12) + '%"></span></div><span>' + cleaning + ' việc dọn</span></div>' +
+    '</div>');
+  }
+
+  function renderOpsControl() {
+    var bookingRows = state.bk.bookings.filter(function (booking) {
+      return ['Đã xác nhận', 'Chờ xác nhận'].indexOf(booking.status) >= 0 && booking.item.indexOf('Phòng') >= 0;
+    }).slice(0, 5);
+    var readyCheckout = state.op.checkins.filter(function (ci) {
+      return ci.status === 'Đang lưu trú' && !checkoutBlockers(ci).length;
+    });
+    var blockedCheckout = state.op.checkins.filter(function (ci) {
+      return ci.status === 'Đang lưu trú' && checkoutBlockers(ci).length;
+    });
+    var activeOrders = state.op.orders.filter(function (order) {
+      return ['Đang bếp', 'Đã phục vụ', 'Chờ thanh toán', 'Chờ check-out'].indexOf(order.status) >= 0;
+    });
+    var slaRows = state.op.requests.filter(function (request) {
+      return request.status !== 'Hoàn tất';
+    }).sort(function (a, b) { return slaInfo(a).remain - slaInfo(b).remain; }).slice(0, 6);
+    var housekeepingRows = state.op.housekeeping.filter(function (task) { return task.inspection !== 'Đạt'; }).slice(0, 6);
+
+    var demoPanel = UI.panel('Kịch bản thao tác demo', '<div class="timeline">' + DEMO_STEPS.map(function (label, index) {
+      var active = index === state.ui.demoStep;
+      return '<div class="slot"><b>Bước ' + (index + 1) + '</b><div>' + UI.esc(label) + '</div><span>' + UI.badge(active ? 'Tiếp theo' : 'Chờ', active ? 'teal' : 'gray') + '</span></div>';
+    }).join('') + '</div>', '<button class="btn btn-primary" data-action="run-demo-step" type="button">Chạy bước tiếp</button>');
+
+    return demoPanel + '<div class="grid-2">' +
+      UI.panel('Booking chờ đẩy check-in', UI.table([
+        { label: 'Mã', key: 'id' }, { label: 'Khách', key: 'guest' }, { label: 'Dịch vụ', key: 'item' }, { label: 'Tổng', render: function (r) { return UI.money(r.total); } }, { label: 'Thao tác', render: function (r) { return '<button class="btn btn-primary" data-action="booking-to-checkin" data-id="' + r.id + '" type="button">Đẩy check-in</button>'; } }
+      ], bookingRows, 'Không có booking phòng đang chờ.')) +
+      UI.panel('Checkout sẵn sàng', UI.table([
+        { label: 'Khách', key: 'guest' }, { label: 'Phòng', key: 'room' }, { label: 'Tạm tính', render: function (r) { return UI.money(checkoutAmount(r)); } }, { label: 'Thao tác', render: function (r) { return '<button class="btn btn-warn" data-action="open-checkout" data-id="' + r.id + '" type="button">Mở hóa đơn</button>'; } }
+      ], readyCheckout, 'Chưa có phòng đủ điều kiện checkout.')) +
+      UI.panel('Checkout đang bị chặn', UI.table([
+        { label: 'Khách', key: 'guest' }, { label: 'Phòng', key: 'room' }, { label: 'Lý do', render: function (r) { return checkoutBlockers(r).map(UI.esc).join('<br>'); } }
+      ], blockedCheckout, 'Không có checkout bị chặn.')) +
+      UI.panel('Order POS cần xử lý', UI.table([
+        { label: 'Mã', key: 'id' }, { label: 'Bàn', key: 'table' }, { label: 'Khách/phòng', key: 'guest' }, { label: 'Trạng thái', key: 'status' }, { label: 'Thao tác', render: function (r) { var finalStatus = r.chargeToRoom ? 'Chờ check-out' : 'Đã thanh toán'; return '<button class="btn btn-primary" data-action="advance-order" data-id="' + r.id + '" type="button" ' + (r.status === finalStatus ? 'disabled' : '') + '>Chuyển bước</button>'; } }
+      ], activeOrders, 'Không có order đang mở.')) +
+      UI.panel('SLA cần theo dõi', UI.table([
+        { label: 'Mã', key: 'id' }, { label: 'Phòng', key: 'room' }, { label: 'Mô tả', key: 'desc' }, { label: 'SLA', render: function (r) { var s = slaInfo(r); return UI.badge(s.text, s.tone); } }, { label: 'Thao tác', render: function (r) { return '<button class="btn btn-primary" data-action="advance-request" data-id="' + r.id + '" type="button">Chuyển bước</button>'; } }
+      ], slaRows, 'Không có yêu cầu mở.')) +
+      UI.panel('Buồng phòng cần xử lý', UI.table([
+        { label: 'Phòng', key: 'room' }, { label: 'NV', key: 'staff' }, { label: 'Trạng thái', key: 'inspection' }, { label: 'Thao tác', render: function (r) { return '<button class="btn btn-primary" data-action="advance-housekeeping" data-room="' + r.room + '" type="button">Chuyển bước</button>'; } }
+      ], housekeepingRows, 'Không có phòng chờ dọn/kiểm.')) +
+    '</div>';
   }
 
   function renderHousekeeping() {
     return UI.panel('Phân công dọn phòng + inspection', UI.table([
-      { label: 'Phòng', key: 'room' }, { label: 'Nhân viên', key: 'staff' }, { label: 'Ca', key: 'shift' }, { label: 'Inspection', render: function (r) { return UI.badge(r.inspection, r.inspection === 'Đạt' ? 'green' : 'yellow'); } }, { label: 'Ảnh', key: 'photo' }
+      { label: 'Phòng', key: 'room' }, { label: 'Nhân viên', key: 'staff' }, { label: 'Ca', key: 'shift' }, { label: 'Inspection', render: function (r) { return UI.badge(r.inspection, r.inspection === 'Đạt' ? 'green' : (r.inspection === 'Không đạt' ? 'red' : 'yellow')); } }, { label: 'Ảnh', key: 'photo' }, { label: 'Thao tác', render: function (r) {
+        return '<button class="btn btn-primary" data-action="advance-housekeeping" data-room="' + r.room + '" type="button" ' + (r.inspection === 'Đạt' ? 'disabled' : '') + '>Chuyển bước</button> <button class="btn btn-danger" data-action="fail-housekeeping" data-room="' + r.room + '" type="button" ' + (r.inspection === 'Đạt' ? 'disabled' : '') + '>Không đạt</button>';
+      } }
     ], state.op.housekeeping));
   }
 
@@ -252,20 +696,28 @@
       { label: 'Món', key: 'name' }, { label: 'Giá', render: function (r) { return UI.money(r.price); } }, { label: 'Dị ứng', render: function (r) { return r.allergy ? UI.badge(r.allergy, 'red') : UI.badge('Không', 'green'); } }
     ], state.op.menu), '<button class="btn btn-primary" data-action="open-order" type="button">Thêm order</button>') + '</div></div>';
     body += UI.panel('Order đang chạy', UI.table([
-      { label: 'Mã', key: 'id' }, { label: 'Bàn', key: 'table' }, { label: 'Khách/phòng', key: 'guest' }, { label: 'Món', render: function (r) { return UI.esc(r.items.join(', ')); } }, { label: 'Tổng', render: function (r) { return UI.money(r.total); } }, { label: 'Trạng thái', render: function (r) { return UI.badge(r.status, r.status === 'Đang bếp' ? 'yellow' : 'green'); } }, { label: 'Charge', render: function (r) { return r.chargeToRoom ? UI.badge('Charge-to-room', 'blue') : UI.badge('Tại bàn', 'gray'); } }
+      { label: 'Mã', key: 'id' }, { label: 'Bàn', key: 'table' }, { label: 'Khách/phòng', key: 'guest' }, { label: 'Món', render: function (r) { return UI.esc(r.items.join(', ')); } }, { label: 'Tổng', render: function (r) { return UI.money(r.total); } }, { label: 'Trạng thái', render: function (r) { return UI.badge(r.status, r.status === 'Đang bếp' ? 'yellow' : (r.status.indexOf('Đã') === 0 ? 'green' : 'blue')); } }, { label: 'Charge', render: function (r) { return r.chargeToRoom ? UI.badge('Charge-to-room', 'blue') : UI.badge('Tại bàn', 'gray'); } }, { label: 'Thao tác', render: function (r) {
+        var finalStatus = r.chargeToRoom ? 'Chờ check-out' : 'Đã thanh toán';
+        var disabled = r.status === finalStatus ? ' disabled' : '';
+        return '<button class="btn btn-primary" data-action="advance-order" data-id="' + r.id + '" type="button"' + disabled + '>Chuyển bước</button> <button class="btn btn-ghost" data-action="print-kitchen" data-id="' + r.id + '" type="button">Phiếu bếp</button>';
+      } }
     ], state.op.orders));
     return body;
   }
 
   function renderCheckin() {
     return UI.panel('Check-in / Check-out', UI.table([
-      { label: 'Mã', key: 'id' }, { label: 'Khách', key: 'guest' }, { label: 'Booking', key: 'booking' }, { label: 'Phòng', key: 'room' }, { label: 'CCCD/QR', key: 'cccd' }, { label: 'Thẻ từ', key: 'card' }, { label: 'Trạng thái', render: function (r) { return UI.badge(r.status, r.status === 'Đang lưu trú' ? 'green' : 'yellow'); } }
+      { label: 'Mã', key: 'id' }, { label: 'Khách', key: 'guest' }, { label: 'Booking', key: 'booking' }, { label: 'Phòng', key: 'room' }, { label: 'CCCD/QR', key: 'cccd' }, { label: 'Thẻ từ', key: 'card' }, { label: 'Tạm tính', render: function (r) { return r.status === 'Đang lưu trú' ? UI.money(checkoutAmount(r)) : UI.badge('Đã khóa', 'gray'); } }, { label: 'Trạng thái', render: function (r) { return UI.badge(r.status, r.status === 'Đang lưu trú' ? 'green' : 'yellow'); } }, { label: 'Thao tác', render: function (r) {
+        return '<button class="btn btn-warn" data-action="open-checkout" data-id="' + r.id + '" type="button" ' + (r.status === 'Đang lưu trú' ? '' : 'disabled') + '>Check-out</button>';
+      } }
     ], state.op.checkins), '<button class="btn btn-primary" data-action="open-checkin" type="button">Check-in khách</button>');
   }
 
   function renderRequests() {
     return UI.panel('Yêu cầu/khiếu nại + SLA timer', UI.table([
-      { label: 'Mã', key: 'id' }, { label: 'Phòng', key: 'room' }, { label: 'Loại', key: 'type' }, { label: 'Mô tả', key: 'desc' }, { label: 'Phân công', key: 'assigned' }, { label: 'SLA còn', render: function (r) { return UI.badge(r.sla + ' phút', r.sla <= 10 ? 'red' : 'yellow'); } }, { label: 'Trạng thái', key: 'status' }
+      { label: 'Mã', key: 'id' }, { label: 'Phòng', key: 'room' }, { label: 'Loại', key: 'type' }, { label: 'Mô tả', key: 'desc' }, { label: 'Phân công', key: 'assigned' }, { label: 'SLA', render: function (r) { var s = slaInfo(r); return UI.badge(s.text, s.tone) + '<div class="fnb-seat">Đã mở ' + s.elapsed + ' phút</div>'; } }, { label: 'Trạng thái', render: function (r) { return UI.badge(r.status, r.status === 'Hoàn tất' ? 'green' : (r.status.indexOf('Escalate') >= 0 ? 'red' : 'yellow')); } }, { label: 'Thao tác', render: function (r) {
+        return '<button class="btn btn-primary" data-action="advance-request" data-id="' + r.id + '" type="button" ' + (r.status === 'Hoàn tất' ? 'disabled' : '') + '>Chuyển bước</button>';
+      } }
     ], state.op.requests));
   }
 
@@ -282,10 +734,14 @@
   }
 
   function renderOpReports() {
+    var occupied = state.op.rooms.filter(function (r) { return r.status === 'Có khách'; }).length;
+    var occupancy = Math.round(occupied / state.op.rooms.length * 100);
+    var dayRevenue = state.fm.revenues.filter(function (r) { return r.date === todayText(); }).reduce(function (sum, r) { return sum + r.amount; }, 0);
+    var fnbRevenue = state.fm.revenues.filter(function (r) { return r.source.indexOf('POS') >= 0 || r.source.indexOf('F&B') >= 0; }).reduce(function (sum, r) { return sum + r.amount; }, 0);
     return '<div class="grid-3">' +
-      UI.panel('Báo cáo ngày 07:00', '<div class="note">Tự tổng hợp doanh thu lưu trú, F&B, spa; gửi BLĐ bản mock.</div>') +
-      UI.panel('Công suất phòng', '<div class="progress"><span style="width:76%"></span></div><br>76% · RevPAR 1,42tr · ADR 1,88tr') +
-      UI.panel('Dịch vụ bổ sung', '<div class="progress"><span style="width:61%"></span></div><br>F&B 22,6tr · Spa 14,4tr · Vé 19,8tr') + '</div>';
+      UI.panel('Báo cáo ngày 07:00', '<div class="note">Tổng hợp từ state hiện tại: ' + UI.money(dayRevenue) + ' doanh thu trong ngày, ' + state.audit.length + ' thao tác audit.</div>') +
+      UI.panel('Công suất phòng', '<div class="progress"><span style="width:' + occupancy + '%"></span></div><br>' + occupancy + '% · RevPAR mô phỏng ' + UI.money(Math.round(dayRevenue / Math.max(1, state.op.rooms.length))) + ' · ADR mô phỏng ' + UI.money(Math.round(dayRevenue / Math.max(1, occupied))) ) +
+      UI.panel('Dịch vụ bổ sung', '<div class="progress"><span style="width:' + Math.min(100, Math.round(fnbRevenue / 500000)) + '%"></span></div><br>F&B đã ghi nhận ' + UI.money(fnbRevenue) + ' · Spa mock 14,4tr · Vé mock 19,8tr') + '</div>';
   }
 
   function renderBK(view) {
@@ -308,7 +764,10 @@
 
   function bookingTable(rows) {
     return UI.table([
-      { label: 'Mã', key: 'id' }, { label: 'Khách', key: 'guest' }, { label: 'SDT', key: 'phone' }, { label: 'Dịch vụ', key: 'item' }, { label: 'Ngày', render: function (r) { return UI.esc(r.from + ' → ' + r.to); } }, { label: 'Tổng', render: function (r) { return UI.money(r.total); } }, { label: 'Thanh toán', key: 'pay' }, { label: 'Trạng thái', render: function (r) { return UI.badge(r.status, r.status === 'Chờ xác nhận' ? 'yellow' : 'green'); } }
+      { label: 'Mã', key: 'id' }, { label: 'Khách', key: 'guest' }, { label: 'SDT', key: 'phone' }, { label: 'Dịch vụ', key: 'item' }, { label: 'Ngày', render: function (r) { return UI.esc(r.from + ' → ' + r.to); } }, { label: 'Tổng', render: function (r) { return UI.money(r.total); } }, { label: 'Thanh toán', key: 'pay' }, { label: 'Trạng thái', render: function (r) { return UI.badge(r.status, r.status === 'Chờ xác nhận' ? 'yellow' : (r.status === 'Completed' ? 'blue' : 'green')); } }, { label: 'Thao tác', render: function (r) {
+        var canPush = ['Đã xác nhận', 'Chờ xác nhận'].indexOf(r.status) >= 0 && r.item.indexOf('Phòng') >= 0;
+        return '<button class="btn btn-primary" data-action="booking-to-checkin" data-id="' + r.id + '" type="button" ' + (canPush ? '' : 'disabled') + '>Đẩy check-in</button>';
+      } }
     ], rows);
   }
 
@@ -437,7 +896,94 @@
     if (view === 'helpdesk') body += UI.panel('Helpdesk theo SLA', UI.table([{ label: 'Mã', key: 'id' }, { label: 'Người báo', key: 'reporter' }, { label: 'Ưu tiên', key: 'priority' }, { label: 'Mô tả', key: 'desc' }, { label: 'SLA', key: 'sla' }, { label: 'Trạng thái', key: 'status' }], it.tickets));
     if (view === 'access') body += renderAccessMatrix();
     if (view === 'backup') body += UI.panel('Sao lưu & DR', UI.table([{ label: 'Đích', key: 'target' }, { label: 'Thời điểm', key: 'time' }, { label: 'Dung lượng', key: 'size' }, { label: 'Trạng thái', key: 'status' }, { label: 'Kiểm tra', key: 'verified' }], it.backups));
+    if (view === 'audit') body += renderAuditLog();
+    if (view === 'health') body += renderHealthCheck();
+    if (view === 'source') body += renderSourceExplorer();
     return page('it', view, body, 'Quản trị thiết bị IT, uptime, helpdesk, quyền truy cập từ FR_MAP và backup/DR.');
+  }
+
+  function renderSourceExplorer() {
+    var modules = MODULES.map(function (m) {
+      return '<option value="' + m.code + '"' + (state.ui.sourceModule === m.code ? ' selected' : '') + '>' + m.code + ' · ' + UI.esc(m.label) + '</option>';
+    }).join('');
+    var code = state.ui.sourceModule;
+    var reqs = Object.keys(SOURCE.reqs || {}).map(function (key) {
+      return Object.assign({ code: key }, SOURCE.reqs[key]);
+    }).filter(function (item) { return item.module === code; });
+    var orgRows = Object.keys(SOURCE.frMap || {}).filter(function (key) {
+      return (SOURCE.frMap[key] || []).some(function (prefix) { return prefix.slice(0, 2) === code; });
+    }).slice(0, 20).map(function (key) {
+      var to = SOURCE.toData && SOURCE.toData[key];
+      return { key: key, name: to ? to.name : key, prefixes: (SOURCE.frMap[key] || []).join(', ') };
+    });
+    var schemaRows = (SOURCE.schema && SOURCE.schema[code] || []).map(function (entity) {
+      return { entity: entity.entity, cols: entity.cols.join(', ') };
+    });
+    return UI.panel('Bộ lọc nguồn dữ liệu', '<div class="field"><label>Module</label><select data-action="set-source-module">' + modules + '</select></div>') +
+      '<div class="grid-2">' +
+      UI.panel('REQS_DATA · yêu cầu chức năng', UI.table([
+        { label: 'Mã', key: 'code' },
+        { label: 'Tên', key: 'name' },
+        { label: 'Sub', key: 'sub' },
+        { label: 'Ưu tiên', render: function (r) { return UI.badge(r.priority, r.priority === 'P1' ? 'red' : (r.priority === 'P2' ? 'yellow' : 'gray')); } }
+      ], reqs, 'Không có FR cho module này.')) +
+      UI.panel('FR_MAP · tổ phụ trách', UI.table([
+        { label: 'Org key', key: 'key' },
+        { label: 'Tên tổ', key: 'name' },
+        { label: 'Prefix FR', key: 'prefixes' }
+      ], orgRows, 'Không có mapping tổ cho module này.')) +
+      UI.panel('SCHEMA_DATA · entity', UI.table([
+        { label: 'Entity', key: 'entity' },
+        { label: 'Cột', key: 'cols' }
+      ], schemaRows, 'Không có schema cho module này.')) +
+      UI.panel('Tóm tắt nguồn', '<div class="note">Module ' + code + ' có ' + reqs.length + ' FR, ' + orgRows.length + ' mapping tổ hiển thị và ' + schemaRows.length + ' entity schema. Dữ liệu được nạp qua script từ charts_html/data/*.js.</div>') +
+      '</div>';
+  }
+
+  function renderAuditLog() {
+    return UI.panel('Audit log thao tác mock', UI.table([
+      { label: 'Thời gian', render: function (r) { return UI.dateTime(r.at); } },
+      { label: 'Vai trò', key: 'role' },
+      { label: 'Hành động', key: 'action' },
+      { label: 'Chi tiết', key: 'detail' },
+      { label: 'Trước', key: 'before' },
+      { label: 'Sau', key: 'after' }
+    ], state.audit, 'Chưa có thao tác audit. Hãy đổi trạng thái phòng, thêm order, check-out hoặc duyệt phiếu chi.'));
+  }
+
+  function healthIssues() {
+    var issues = [];
+    state.op.rooms.filter(function (room) { return room.status === 'Có khách'; }).forEach(function (room) {
+      var hasStay = state.op.checkins.some(function (ci) { return ci.room === room.id && ci.status === 'Đang lưu trú'; });
+      if (!hasStay) issues.push({ area: 'OP', type: 'Phòng', severity: 'P2', detail: room.id + ' đang Có khách nhưng không có check-in active.' });
+    });
+    state.op.checkins.filter(function (ci) { return ci.status === 'Đang lưu trú'; }).forEach(function (ci) {
+      var room = state.op.rooms.find(function (r) { return r.id === ci.room; });
+      if (!room || room.status !== 'Có khách') issues.push({ area: 'OP', type: 'Check-in', severity: 'P1', detail: ci.id + ' active nhưng phòng không ở trạng thái Có khách.' });
+    });
+    state.op.orders.filter(function (order) { return order.chargeToRoom && ['Đang bếp', 'Đã phục vụ', 'Chờ check-out'].indexOf(order.status) >= 0; }).forEach(function (order) {
+      var roomNo = order.guest.replace('Phòng ', '');
+      var hasStay = state.op.checkins.some(function (ci) { return ci.room === roomNo && ci.status === 'Đang lưu trú'; });
+      if (!hasStay) issues.push({ area: 'OP/F&B', type: 'Charge-to-room', severity: 'P2', detail: order.id + ' charge vào ' + order.guest + ' nhưng không có khách lưu trú active.' });
+    });
+    state.vt.stock.filter(function (stock) { return stock.onhand < stock.min; }).forEach(function (stock) {
+      issues.push({ area: 'VT', type: 'Tồn kho', severity: 'P3', detail: stock.name + ' dưới tối thiểu: ' + stock.onhand + '/' + stock.min + ' ' + stock.unit + '.' });
+    });
+    state.op.requests.forEach(function (request) {
+      var sla = slaInfo(request);
+      if (sla.remain < 0 && request.status !== 'Hoàn tất') issues.push({ area: 'OP', type: 'SLA', severity: 'P1', detail: request.id + ' đã trễ SLA ' + Math.abs(sla.remain) + ' phút.' });
+    });
+    return issues;
+  }
+
+  function renderHealthCheck() {
+    var rows = healthIssues();
+    return UI.panel('Kiểm tra nhất quán dữ liệu mock', UI.table([
+      { label: 'Module', key: 'area' },
+      { label: 'Loại', key: 'type' },
+      { label: 'Mức', render: function (r) { return UI.badge(r.severity, r.severity === 'P1' ? 'red' : (r.severity === 'P2' ? 'yellow' : 'gray')); } },
+      { label: 'Chi tiết', key: 'detail' }
+    ], rows, 'Không phát hiện bất thường trong state hiện tại.'));
   }
 
   function renderAccessMatrix() {
@@ -468,47 +1014,209 @@
     UI.modal('Lập phiếu chi', '<form id="expense-form" class="form-grid"><div class="field"><label>Bộ phận</label><input name="dept" value="F&B"></div><div class="field"><label>Khoản chi</label><input name="category" value="Bổ sung hàu Lộc Hà"></div><div class="field"><label>Số tiền</label><input name="amount" type="number" value="5600000"></div><div class="field"><label>Hóa đơn</label><input name="invoice" value="HD-MOCK"></div></form>', '<button class="btn btn-primary" data-action="submit-expense" type="button">Tạo phiếu</button>');
   }
 
+  function openCheckoutModal(checkin) {
+    var blockers = checkoutBlockers(checkin);
+    var b = checkoutBreakdown(checkin);
+    var body = '<div class="note">Hóa đơn mock chỉ dùng cho demo, chưa phát hành VAT thật.</div><br>' +
+      UI.table([
+        { label: 'Khoản', key: 'label' },
+        { label: 'Số tiền', render: function (r) { return UI.money(r.amount); } }
+      ], [
+        { label: 'Tiền phòng / booking', amount: b.room },
+        { label: 'F&B charge-to-room', amount: b.fnb },
+        { label: 'Minibar / amenities', amount: b.minibar },
+        { label: 'Tạm tính', amount: b.subtotal },
+        { label: 'VAT mô phỏng 10%', amount: b.vat },
+        { label: 'Tổng thanh toán', amount: b.total }
+      ]);
+    if (blockers.length) {
+      body += '<br><div class="note" style="background:#fff5f5;border-color:#fed7d7;color:#9b2c2c">' + blockers.map(UI.esc).join('<br>') + '</div>';
+    }
+    UI.modal('Hóa đơn checkout · ' + checkin.room, body, '<button class="btn btn-ghost" data-action="print-window" type="button">In hóa đơn</button><button class="btn btn-ghost" data-close-modal type="button">Đóng</button><button class="btn btn-primary" data-action="confirm-checkout" data-id="' + checkin.id + '" type="button" ' + (blockers.length ? 'disabled' : '') + '>Xác nhận checkout</button>');
+  }
+
+  function openKitchenSlip(order) {
+    var allergyItems = order.items.filter(function (name) {
+      var menu = state.op.menu.find(function (m) { return m.name === name; });
+      return menu && menu.allergy;
+    }).map(function (name) {
+      var menu = state.op.menu.find(function (m) { return m.name === name; });
+      return name + ': ' + menu.allergy;
+    });
+    var body = '<div class="note">Phiếu bếp giả lập · ' + UI.dateTime(new Date().toISOString()) + '</div><br>' +
+      '<div class="grid-2"><div><b>Mã order</b><br>' + UI.esc(order.id) + '</div><div><b>Bàn/khách</b><br>' + UI.esc(order.table + ' · ' + order.guest) + '</div></div><br>' +
+      UI.table([{ label: 'Món', render: function (r) { return UI.esc(r); } }], order.items) +
+      (allergyItems.length ? '<br><div class="note" style="background:#fff5f5;border-color:#fed7d7;color:#9b2c2c"><b>Cảnh báo dị ứng</b><br>' + allergyItems.map(UI.esc).join('<br>') + '</div>' : '');
+    UI.modal('Phiếu bếp · ' + order.id, body, '<button class="btn btn-ghost" data-action="print-window" type="button">In phiếu</button><button class="btn btn-primary" data-close-modal type="button">Đóng</button>');
+  }
+
   document.addEventListener('click', function (event) {
     var actionEl = event.target.closest('[data-action]');
     if (!actionEl) return;
     var action = actionEl.dataset.action;
     if (action === 'cycle-room') {
       var room = state.op.rooms.find(function (r) { return r.id === actionEl.dataset.room; });
+      var beforeRoom = clone(room);
       var list = ['Trống sạch','Có khách','Cần dọn','Bảo trì','Đặt trước'];
       room.status = list[(list.indexOf(room.status) + 1) % list.length];
       if (room.status !== 'Có khách') room.guest = '';
-      saveState(); render(); UI.toast('Đã đổi trạng thái phòng ' + room.id + ' thành ' + room.status, 'success');
+      audit('ROOM_STATUS', 'Đổi trạng thái phòng ' + room.id, beforeRoom, room);
+      persist('Đã đổi trạng thái phòng ' + room.id + ' thành ' + room.status, 'success');
+    }
+    if (action === 'run-demo-step') {
+      runDemoStep();
     }
     if (action === 'open-order') openOrderModal();
     if (action === 'submit-order') {
       var form = document.getElementById('order-form');
       var item = state.op.menu.find(function (m) { return m.id === form.item.value; });
-      state.op.orders.unshift({ id: 'OD-' + (1100 + state.op.orders.length), table: form.table.value, guest: form.guest.value, items: [item.name], total: item.price, status: 'Đang bếp', chargeToRoom: form.charge.value === '1' });
+      var newOrder = { id: 'OD-' + (1100 + state.op.orders.length), table: form.table.value, guest: form.guest.value, items: [item.name], total: item.price, status: 'Đang bếp', chargeToRoom: form.charge.value === '1' };
+      state.op.orders.unshift(newOrder);
       var table = state.op.tables.find(function (t) { return t.id === form.table.value; });
       if (table) table.status = 'Đang phục vụ';
+      audit('FNB_ORDER_CREATE', 'Tạo order ' + newOrder.id + ' và in phiếu bếp giả lập', null, newOrder);
       saveState(); UI.closeModal(); render(); UI.toast('Đã thêm order và in phiếu bếp giả lập', 'success');
+    }
+    if (action === 'advance-order') {
+      var order = state.op.orders.find(function (o) { return o.id === actionEl.dataset.id; });
+      if (order) {
+        var beforeOrder = clone(order);
+        order.status = nextOrderStatus(order);
+        if (order.status === 'Đã thanh toán') {
+          addRevenue('POS F&B ' + order.id, order.total, 'Chờ đối soát cuối ca');
+          deductStockForOrder(order);
+        }
+        syncTableStatus(order.table);
+        audit('FNB_ORDER_ADVANCE', 'Chuyển bước order ' + order.id + ' sang ' + order.status, beforeOrder, order);
+        persist('Đã chuyển order ' + order.id + ' sang ' + order.status, 'success');
+      }
+    }
+    if (action === 'print-kitchen') {
+      var slipOrder = state.op.orders.find(function (o) { return o.id === actionEl.dataset.id; });
+      if (slipOrder) openKitchenSlip(slipOrder);
+    }
+    if (action === 'print-window') {
+      window.print();
+    }
+    if (action === 'advance-housekeeping' || action === 'fail-housekeeping') {
+      var task = state.op.housekeeping.find(function (item) { return item.room === actionEl.dataset.room && item.inspection !== 'Đạt'; });
+      if (task) {
+        var beforeTask = clone(task);
+        task.inspection = action === 'fail-housekeeping' ? 'Không đạt' : nextHousekeepingStatus(task.inspection);
+        if (task.inspection === 'Đang dọn' && task.staff === 'Chưa phân công') task.staff = 'Tổ buồng phòng';
+        if (task.inspection === 'Đạt') {
+          task.photo = 'Ảnh sau dọn đã nhận';
+          var cleanRoom = state.op.rooms.find(function (room) { return room.id === task.room; });
+          if (cleanRoom) cleanRoom.status = 'Trống sạch';
+        }
+        audit('HOUSEKEEPING_FLOW', 'Cập nhật inspection phòng ' + task.room + ' sang ' + task.inspection, beforeTask, task);
+        persist('Đã cập nhật dọn phòng ' + task.room + ' sang ' + task.inspection, 'success');
+      }
+    }
+    if (action === 'advance-request') {
+      var req = state.op.requests.find(function (item) { return item.id === actionEl.dataset.id; });
+      if (req) {
+        var beforeReq = clone(req);
+        req.status = nextRequestStatus(req.status);
+        if (req.status === 'Hoàn tất') req.completedAt = new Date().toISOString();
+        audit('REQUEST_FLOW', 'Cập nhật yêu cầu ' + req.id + ' sang ' + req.status, beforeReq, req);
+        persist('Đã cập nhật yêu cầu ' + req.id + ' sang ' + req.status, 'success');
+      }
     }
     if (action === 'open-checkin') openCheckinModal();
     if (action === 'submit-checkin') {
       var f = document.getElementById('checkin-form');
-      state.op.checkins.unshift({ id: 'CI-' + (2500 + state.op.checkins.length), guest: f.guest.value, booking: f.booking.value, room: f.room.value, cccd: f.cccd.value, card: 'Đã giao thẻ', status: 'Đang lưu trú' });
+      var checkin = { id: 'CI-' + (2500 + state.op.checkins.length), guest: f.guest.value, booking: f.booking.value, room: f.room.value, cccd: f.cccd.value, card: 'Đã giao thẻ', status: 'Đang lưu trú' };
+      state.op.checkins.unshift(checkin);
       var r = state.op.rooms.find(function (room) { return room.id === f.room.value; });
       if (r) { r.status = 'Có khách'; r.guest = f.guest.value; }
+      audit('CHECKIN_CREATE', 'Check-in khách ' + checkin.guest + ' vào phòng ' + checkin.room, null, checkin);
       saveState(); UI.closeModal(); render(); UI.toast('Đã check-in và cập nhật trạng thái phòng', 'success');
+    }
+    if (action === 'open-checkout') {
+      var checkoutCandidate = state.op.checkins.find(function (item) { return item.id === actionEl.dataset.id; });
+      if (checkoutCandidate) openCheckoutModal(checkoutCandidate);
+    }
+    if (action === 'confirm-checkout') {
+      var ci = state.op.checkins.find(function (item) { return item.id === actionEl.dataset.id; });
+      if (ci && ci.status === 'Đang lưu trú') {
+        var blockers = checkoutBlockers(ci);
+        if (blockers.length) {
+          UI.toast(blockers[0], 'warn');
+          return;
+        }
+        var beforeCi = clone(ci);
+        var amount = checkoutAmount(ci);
+        ci.status = 'Đã check-out';
+        ci.checkoutTotal = amount;
+        state.op.checkouts.unshift({ id: 'CO-' + (2600 + state.op.checkouts.length), checkin: ci.id, guest: ci.guest, room: ci.room, total: amount, at: new Date().toISOString() });
+        var checkoutRoom = state.op.rooms.find(function (room) { return room.id === ci.room; });
+        if (checkoutRoom) { checkoutRoom.status = 'Cần dọn'; checkoutRoom.guest = ''; }
+        roomChargeOrders(ci.room).forEach(function (o) { o.status = 'Đã tính tiền'; syncTableStatus(o.table); deductStockForOrder(o); });
+        var booking = bookingForCheckin(ci);
+        if (booking) booking.status = 'Completed';
+        addRevenue('Check-out phòng ' + ci.room, amount, 'Chờ đối soát cuối ngày');
+        addHousekeepingTask(ci.room);
+        audit('CHECKOUT_COMPLETE', 'Check-out ' + ci.guest + ', ghi doanh thu và chuyển phòng cần dọn', beforeCi, ci);
+        saveState(); UI.closeModal(); render(); UI.toast('Đã check-out, ghi doanh thu FM và tạo việc dọn phòng', 'success');
+      }
     }
     if (action === 'open-expense') openExpenseModal();
     if (action === 'submit-expense') {
       var ef = document.getElementById('expense-form');
       var amount = Number(ef.amount.value || 0);
-      state.fm.expenses.unshift({ id: 'PC-2606-' + String(100 + state.fm.expenses.length), maker: role().label, dept: ef.dept.value, category: ef.category.value, amount: amount, status: amount > 20000000 ? 'Chờ TGĐ duyệt' : 'Chờ KTT duyệt', level: amount > 20000000 ? 'TGĐ' : 'KTT', invoice: ef.invoice.value });
+      var expenseNew = { id: 'PC-2606-' + String(100 + state.fm.expenses.length), maker: role().label, dept: ef.dept.value, category: ef.category.value, amount: amount, status: amount > 20000000 ? 'Chờ TGĐ duyệt' : 'Chờ KTT duyệt', level: amount > 20000000 ? 'TGĐ' : 'KTT', invoice: ef.invoice.value };
+      state.fm.expenses.unshift(expenseNew);
+      audit('EXPENSE_CREATE', 'Lập phiếu chi ' + expenseNew.id, null, expenseNew);
       saveState(); UI.closeModal(); render(); UI.toast('Đã lập phiếu chi. Nút duyệt phụ thuộc vai trò checker.', 'success');
     }
     if (action === 'approve-expense') {
       var expense = state.fm.expenses.find(function (e) { return e.id === actionEl.dataset.id; });
       if (expense && canApproveExpense()) {
+        var beforeExpense = clone(expense);
         expense.status = 'Đã duyệt';
-        saveState(); render(); UI.toast('Đã duyệt phiếu chi theo vai trò checker', 'success');
+        audit('EXPENSE_APPROVE', 'Duyệt phiếu chi ' + expense.id, beforeExpense, expense);
+        persist('Đã duyệt phiếu chi theo vai trò checker', 'success');
       }
+    }
+    if (action === 'booking-to-checkin') {
+      var bk = state.bk.bookings.find(function (b) { return b.id === actionEl.dataset.id; });
+      if (bk) {
+        var freeRoom = state.op.rooms.find(function (room) { return room.status === 'Trống sạch' || room.status === 'Đặt trước'; });
+        if (!freeRoom) {
+          UI.toast('Không còn phòng trống sạch để check-in', 'warn');
+          return;
+        }
+        var beforeBooking = clone(bk);
+        bk.status = 'Check-in';
+        freeRoom.status = 'Có khách';
+        freeRoom.guest = bk.guest;
+        var pushed = { id: 'CI-' + (2500 + state.op.checkins.length), guest: bk.guest, booking: bk.id, room: freeRoom.id, cccd: 'QR từ booking', card: 'Đã giao thẻ', status: 'Đang lưu trú' };
+        state.op.checkins.unshift(pushed);
+        audit('BOOKING_TO_CHECKIN', 'Đẩy booking ' + bk.id + ' sang OP check-in', beforeBooking, pushed);
+        persist('Đã đẩy booking sang check-in và cập nhật phòng ' + freeRoom.id, 'success');
+      }
+    }
+  });
+
+  document.addEventListener('change', function (event) {
+    var actionEl = event.target.closest('[data-action]');
+    if (!actionEl) return;
+    var action = actionEl.dataset.action;
+    if (action === 'set-room-status') {
+      state.ui.roomStatus = actionEl.value;
+      saveState();
+      render();
+    }
+    if (action === 'set-room-floor') {
+      state.ui.roomFloor = actionEl.value;
+      saveState();
+      render();
+    }
+    if (action === 'set-source-module') {
+      state.ui.sourceModule = actionEl.value;
+      saveState();
+      render();
     }
   });
 

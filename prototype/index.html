@@ -33,6 +33,20 @@
           <span>Vai trò</span>
           <select id="role-select"></select>
         </label>
+        <label class="role-picker">
+          <span>Kịch bản</span>
+          <select id="scenario-select">
+            <option value="normal">Ngày thường</option>
+            <option value="weekend">Cuối tuần đông khách</option>
+            <option value="incident">Sự cố vận hành</option>
+            <option value="finance">Duyệt chi cao điểm</option>
+          </select>
+        </label>
+        <button class="btn btn-teal" id="btn-scenario" type="button">Nạp kịch bản</button>
+        <button class="btn btn-primary" id="btn-demo-step" type="button">Bước demo</button>
+        <button class="btn btn-ghost" id="btn-export" type="button">Xuất JSON</button>
+        <button class="btn btn-ghost" id="btn-import" type="button">Nhập JSON</button>
+        <input id="import-file" type="file" accept="application/json" hidden>
         <button class="btn btn-ghost" id="btn-reset" type="button">Đặt lại mock</button>
       </div>
     </header>
