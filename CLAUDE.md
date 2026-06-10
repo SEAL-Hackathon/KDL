@@ -172,4 +172,8 @@ Topbar có bộ chọn kịch bản demo (`Ngày thường`, `Cuối tuần đô
 
 Nút `Bước demo` trên topbar và trong `Trung tâm vận hành` chạy tuần tự một demo script: booking → check-in, POS, checkout, housekeeping, SLA, health check. Module CNTT có màn `Nguồn FR/Schema` để tra trực tiếp `REQS_DATA`, `FR_MAP`, `SCHEMA_DATA` theo module.
 
+RBAC mock không chỉ có vài role mẫu: dropdown vai trò sinh thêm toàn bộ org-key trong `FR_MAP`/`TO_DATA`. Menu, tab màn hình và các nút thao tác chính được lọc theo module/prefix FR của role; CNTT → `Quản lý truy cập` hiển thị ma trận toàn bộ vai trò × 9 phân hệ và có nút chọn role để test nhanh.
+
 Khi sửa prototype: chỉ chỉnh trong `prototype/` trừ khi cập nhật tài liệu hướng dẫn này. Không chạm `charts_html/`, `docs/`, CSV; các file đó chỉ được nạp lại làm dữ liệu nguồn.
+
+Do Vercel hiện đang host với root `charts_html/`, bản deploy của prototype nằm tại `charts_html/prototype/` và đọc dữ liệu thật qua `../data/*.js`. Khi cập nhật prototype gốc, cần đồng bộ sang `charts_html/prototype/` trước khi deploy; nút `Preview UI` trong `charts_html/index.html` trỏ tới `./prototype/index.html`.
