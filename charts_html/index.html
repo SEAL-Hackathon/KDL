@@ -38,6 +38,8 @@
     .btn-nav:not(:disabled):hover{background:#cbd5e0}
     .btn-print{background:#276749;color:#fff}
     .btn-print:hover{background:#22543d}
+    .btn-preview{background:#d69e2e;color:#1a202c;text-decoration:none}
+    .btn-preview:hover{background:#f6ad55}
     .btn-home{background:#ebf8ff;color:#2b6cb0}
     .btn-home:hover{background:#bee3f8}
     .zoom-group{display:flex;align-items:center;gap:3px;background:#f7fafc;border:1px solid #e2e8f0;border-radius:6px;padding:2px 7px}
@@ -261,6 +263,7 @@
       <span   class="counter"       id="counter">1 / 9</span>
       <button class="btn btn-nav"   id="btn-next" onclick="nav(+1)">Sau ▶</button>
       <button class="btn btn-home"  onclick="goTo(0)">↩ Tổng quan</button>
+      <a class="btn btn-preview" href="../prototype/index.html">Preview UI</a>
       <button class="btn btn-print" onclick="window.print()">🖨 In / PDF</button>
     </div>
   </div>

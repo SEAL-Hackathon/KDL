@@ -149,3 +149,19 @@ Thư mục `docs/` là **bước cầu nối từ đặc tả sang triển khai 
 
 **Quy tắc đồng bộ khi đổi yêu cầu (4 nguồn, theo thứ tự)**:
 `KDL_Requirements_Full.csv` → `charts_html/data/reqs-data.js` (REQS_DATA) → `docs/<module>.md` (mục 2 & ước lượng) → `docs/01-phan-quyen-rbac.md` (nếu đụng vai trò/quyền). Bốn nguồn phải khớp số FR & man-day.
+
+## 9. Prototype mock UI tĩnh (`prototype/`)
+
+`prototype/` là SPA mock UI thuần frontend cho phần mềm quản trị KDL Hà Tĩnh. Không có backend, API thật, database, framework, dependency, `package.json` hay build step. Entry là `prototype/index.html`, mở trực tiếp bằng double-click (`file://`) hoặc deploy static trên Vercel đều chạy.
+
+Cấu trúc chính:
+- `prototype/index.html`: shell sidebar 9 module, topbar chọn vai trò, vùng render.
+- `prototype/assets/css/app.css`: design system dashboard theo palette `charts_html`.
+- `prototype/assets/js/components.js`: bảng, badge, KPI, modal, toast.
+- `prototype/assets/js/app.js`: hash-router, RBAC mock, render màn hình và tương tác sống.
+- `prototype/data/_bridge.js`: bridge đọc lại `charts_html/data/org-data.js`, `reqs-data.js`, `mapping-data.js` để dùng `TO_DATA`, `REQS_DATA`, `FR_MAP`, `SCHEMA_DATA` thật.
+- `prototype/data/mock-*.js`: dữ liệu vận hành giả cho phòng, POS, booking, nhân sự, tài chính, vật tư, spa, vui chơi, nghệ thuật Ví Dặm, IT.
+
+Các tương tác demo hiện có: đổi trạng thái phòng, thêm order F&B, check-in khách và cập nhật phòng, lập/duyệt phiếu chi theo SoD. Bộ chọn vai trò lọc menu client-side theo `FR_MAP`/module được cấp và minh họa `scope own` cho nghệ nhân/nhân viên.
+
+Khi sửa prototype: chỉ chỉnh trong `prototype/` trừ khi cập nhật tài liệu hướng dẫn này. Không chạm `charts_html/`, `docs/`, CSV; các file đó chỉ được nạp lại làm dữ liệu nguồn.

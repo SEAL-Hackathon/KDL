@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prototype quản trị KDL Hà Tĩnh</title>
+  <link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">KDL</div>
+      <div>
+        <div class="brand-name">KDL Hà Tĩnh</div>
+        <div class="brand-sub">Mock UI quản trị vận hành</div>
+      </div>
+    </div>
+    <div class="nav-filter">
+      <label for="module-filter">Phân hệ</label>
+      <select id="module-filter"></select>
+    </div>
+    <nav id="nav"></nav>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-title">
+        <div id="screen-title">Prototype quản trị</div>
+        <small id="screen-subtitle">HTML + CSS + JavaScript thuần, dữ liệu mock cục bộ</small>
+      </div>
+      <div class="topbar-actions">
+        <label class="role-picker">
+          <span>Vai trò</span>
+          <select id="role-select"></select>
+        </label>
+        <button class="btn btn-ghost" id="btn-reset" type="button">Đặt lại mock</button>
+      </div>
+    </header>
+
+    <section class="content" id="app"></section>
+  </main>
+
+  <div class="toast-wrap" id="toast-wrap"></div>
+  <div class="modal-backdrop" id="modal-root" hidden></div>
+
+  <script src="../charts_html/data/org-data.js"></script>
+  <script src="../charts_html/data/reqs-data.js"></script>
+  <script src="../charts_html/data/mapping-data.js"></script>
+  <script src="data/_bridge.js"></script>
+  <script src="data/mock-op.js"></script>
+  <script src="data/mock-bk.js"></script>
+  <script src="data/mock-hr.js"></script>
+  <script src="data/mock-fm.js"></script>
+  <script src="data/mock-vt.js"></script>
+  <script src="data/mock-sp-vg-nt-it.js"></script>
+  <script src="assets/js/components.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
